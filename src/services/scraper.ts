@@ -39,10 +39,10 @@ async function parseHtml(html: string, parserType: string): Promise<any> {
 
 let creating: Promise<void> | null = null;
 async function setupOffscreenDocument() {
-  const contexts = await chrome.runtime.getContexts({
+  const contexts = await (chrome.runtime as any).getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT']
   });
-  if (contexts.length > 0) return;
+  if (contexts?.length > 0) return;
 
   if (creating) {
     await creating;

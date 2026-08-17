@@ -16,12 +16,13 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
     "@types/chrome": "^0.0.300",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.0.4",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
-  }
-,
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
