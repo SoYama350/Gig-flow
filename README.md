@@ -1,52 +1,56 @@
-# GigFlow — Freelance Automation
+# GigFlow Monorepo
 
-Browser extension to monitor Mostaql & Khamsat gigs, match by skill, and generate AI proposals in Arabic or English.
+This repository contains two related projects that live together in one monorepo:
 
-## Quick start
+- `web/` � the local full-stack freelance automation web app
+- `extension/` � the browser extension version of GigFlow
 
-Requirements: Node 18+, npm
+## Projects
 
-Install dependencies:
+### Web app (`web/`)
+The web app is the local full-stack project that includes:
+
+- React + Vite frontend
+- Express backend server
+- Prisma + SQLite database
+- AI proposal generation using Gemini
+- scraping and gig management flows
+
+Run it from `web/`:
 
 ```bash
+cd web
 npm install
-```
-
-Run the build watch (development):
-
-```bash
+npm run build
 npm run dev
 ```
 
-This builds into the `dist/` folder. To load the extension in Chrome/Edge:
+Required env vars for the web app:
 
-1. Open `chrome://extensions/`.
-2. Enable **Developer mode**.
-3. Click **Load unpacked** and select the project's `dist/` folder.
+- `GEMINI_API_KEY`
+- optionally `APP_URL`
 
-## Build (production)
+Keep `.env.local` local and do not commit secrets.
+
+### Extension (`extension/`)
+The extension project is the remote GitHub repo content preserved separately.
+
+Run it from `extension/`:
 
 ```bash
+cd extension
+npm install
 npm run build
 ```
 
-## Project structure
+The extension build outputs to `dist/` and is loaded in Chrome/Edge via `chrome://extensions/` using "Load unpacked".
 
-- `src/` — React source and extension UI
-- `background.ts` — service worker / background script
-- `public/manifest.json` — extension manifest used for builds
-- `dist/` — build output (generated)
+## Root rules
 
-## Contributing
-
-1. Fork and clone this repo.
-2. Create a feature branch.
-3. Open a PR describing changes.
+- Do not commit `.env.local`, `.env`, `node_modules/`, `dist/`, or local database files.
+- Keep each project isolated with its own `package.json` and dependencies.
+- Preserve the original remote Git history and do not force-push.
 
 ## License
 
-MIT — see `LICENSE`.
-
-## Contact
-
-Repository: https://github.com/SoYama350/Gig-flow.git
+The original repository license is preserved at the root.
