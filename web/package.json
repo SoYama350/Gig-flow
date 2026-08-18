@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:ghpages": "prisma generate && GITHUB_PAGES=true node ./scripts/ghpages-build.mjs",
     "start": "next start",
     "clean": "rm -rf .next dev.db",
     "lint": "tsc --noEmit",
