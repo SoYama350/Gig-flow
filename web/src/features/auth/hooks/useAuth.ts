@@ -1,3 +1,5 @@
+"use client";
+
 import { useAuthState, useAuthDispatch } from '../context/AuthProvider';
 import { useLogout } from './useLogout';
 

@@ -1,5 +1,7 @@
+"use client";
+
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks';
 
 interface RoleGuardProps {
@@ -13,12 +15,17 @@ interface RoleGuardProps {
  */
 export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
-  if (isLoading) return null;
+  React.useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated || !user) { router.replace('/login'); return; }
+    const hasRole = true;
+    if (!hasRole) router.replace('/unauthorized');
+  }, [isLoading, isAuthenticated, user, router, allowedRoles]);
 
-  if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
-  }
+  if (isLoading || !isAuthenticated || !user) return null;
+
 
   // Example logic if user had a `roles: string[]` property:
   // const hasRole = user.roles?.some(role => allowedRoles.includes(role));
@@ -26,9 +33,6 @@ export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   // For now, allow everyone since roles aren't implemented in the DB schema yet.
   const hasRole = true; 
 
-  if (!hasRole) {
-    return <Navigate to="/unauthorized" replace />;
-  }
 
   return <>{children}</>;
 }

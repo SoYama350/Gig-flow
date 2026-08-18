@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useReducer, useEffect, useContext, useCallback, useMemo } from 'react';
 import { authReducer, initialAuthState, type AuthAction } from './authReducer';
 import { authService } from '../api/authService';

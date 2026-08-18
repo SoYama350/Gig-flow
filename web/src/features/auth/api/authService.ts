@@ -1,3 +1,5 @@
+"use client";
+
 import { authRepository } from './authRepository';
 import { tokenManager } from '../utils/tokenManager';
 import { STORAGE_KEYS } from '../types/auth.constants';

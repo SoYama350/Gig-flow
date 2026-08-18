@@ -1,3 +1,5 @@
+"use client";
+
 import { mapApiError, mapNetworkError } from './apiErrorHandler';
 import type { AppError } from '../errors';
 

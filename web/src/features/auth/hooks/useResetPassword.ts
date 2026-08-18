@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { authRepository } from '../api/authRepository';
 import type { MutationState } from '../types/auth.types';

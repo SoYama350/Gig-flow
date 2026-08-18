@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Manages the client-side lifecycle of the access token.
  * Tokens are stored purely in memory for maximum XSS protection.

@@ -1,10 +1,13 @@
+"use client";
+
 import React, { useState } from 'react';
 import { useRegister } from '../hooks';
 import { validateRegisterForm } from '../validation/schemas';
 import { AuthFormWrapper } from './AuthFormWrapper';
 import { OAuthButtonGroup } from './OAuthButtonGroup';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export function RegisterForm() {
   const [name, setName] = useState('');
@@ -13,7 +16,7 @@ export function RegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   
   const { register, isLoading, error } = useRegister();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +30,7 @@ export function RegisterForm() {
 
     const success = await register({ name, email, password });
     if (success) {
-      navigate('/dashboard'); // Wait for verification in a real app, but we simulate login for now
+      router.push('/dashboard'); // Wait for verification in a real app, but we simulate login for now
     }
   };
 
@@ -38,7 +41,7 @@ export function RegisterForm() {
       footer={
         <p>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+          <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
             Log in
           </Link>
         </p>

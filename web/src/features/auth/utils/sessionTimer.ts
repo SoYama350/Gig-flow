@@ -1,3 +1,5 @@
+"use client";
+
 import { TOKEN_CONFIG } from '../types/auth.constants';
 
 type RefreshCallback = () => void;

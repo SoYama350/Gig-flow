@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useMemo } from 'react';
 import { scorePassword } from '../validation/validators';
 import { useDebounce } from '../../../shared/hooks/useDebounce';

@@ -1,10 +1,20 @@
 node_modules/
 build/
 dist/
+.next/
+out/
 coverage/
 .DS_Store
 *.log
+*.tsbuildinfo
+next-env.d.ts
+
+# Local environment files — never commit secrets
 .env*
 !.env.example
+
+# Local SQLite database — never committed
+*.db
+dev.db*
 
 /src/generated/prisma

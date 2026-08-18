@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback } from 'react';
 import { AUTH_API, OAUTH_PROVIDERS } from '../types/auth.constants';
 import type { OAuthProvider } from '../types/auth.types';

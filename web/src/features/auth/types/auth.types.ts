@@ -33,11 +33,12 @@ export interface LoginCredentials {
 export interface RegisterData {
   email: string;
   password: string;
-  username: string;
-  firstName: string;
-  lastName: string;
-  termsAccepted: boolean;
-  marketingEmails: boolean;
+  name?: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  termsAccepted?: boolean;
+  marketingEmails?: boolean;
 }
 
 /**

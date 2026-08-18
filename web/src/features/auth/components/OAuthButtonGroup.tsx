@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { useOAuth } from '../hooks/useOAuth';
 import { OAUTH_PROVIDERS } from '../types/auth.constants';

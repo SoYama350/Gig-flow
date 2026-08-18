@@ -1,3 +1,5 @@
+"use client";
+
 // This is a barrel file to export all hooks for easy importing from other layers.
 export * from './useAuth';
 export * from './useLogin';

@@ -1,5 +1,7 @@
+"use client";
+
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../hooks';
 
 interface GuestRouteProps {
@@ -8,7 +10,14 @@ interface GuestRouteProps {
 
 export function GuestRoute({ children }: GuestRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  React.useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
+    const from = searchParams.get('from') || '/dashboard';
+    router.replace(from);
+  }, [isLoading, isAuthenticated, router, searchParams]);
 
   if (isLoading) {
     return (
@@ -19,10 +28,7 @@ export function GuestRoute({ children }: GuestRouteProps) {
   }
 
   if (isAuthenticated) {
-    // If the user is already logged in, redirect them away from auth pages (login, register)
-    // Send them back to where they came from, or default to dashboard
-    const from = location.state?.from?.pathname || '/dashboard';
-    return <Navigate to={from} replace />;
+    return null;
   }
 
   return <>{children}</>;

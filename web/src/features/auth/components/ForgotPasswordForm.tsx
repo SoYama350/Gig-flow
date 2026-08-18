@@ -1,8 +1,10 @@
+"use client";
+
 import React, { useState } from 'react';
 import { useForgotPassword } from '../hooks';
 import { validateForgotPasswordForm } from '../validation/schemas';
 import { AuthFormWrapper } from './AuthFormWrapper';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
@@ -32,7 +34,7 @@ export function ForgotPasswordForm() {
             we have sent a password reset link.
           </p>
           <div className="pt-4">
-            <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
+            <Link href="/login" className="text-blue-600 hover:text-blue-500 font-medium">
               Return to login
             </Link>
           </div>
@@ -46,7 +48,7 @@ export function ForgotPasswordForm() {
       title="Reset your password"
       subtitle="Enter your email address and we'll send you a link to reset your password."
       footer={
-        <Link to="/login" className="font-medium text-gray-600 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300">
+        <Link href="/login" className="font-medium text-gray-600 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300">
           Back to login
         </Link>
       }

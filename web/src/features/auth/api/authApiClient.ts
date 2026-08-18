@@ -1,3 +1,5 @@
+"use client";
+
 import { httpClient } from '../../../shared/api/httpClient';
 import { AUTH_API } from '../types/auth.constants';
 import type { LoginCredentials, RegisterData, AuthResponse, RefreshResponse, User } from '../types/auth.types';

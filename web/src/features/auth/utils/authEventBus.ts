@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Uses BroadcastChannel to synchronize auth state across multiple browser tabs.
  * If a user logs out in one tab, all other tabs receive the signal and log out immediately.

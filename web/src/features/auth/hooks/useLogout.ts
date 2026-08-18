@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback } from 'react';
 import { authService } from '../api/authService';
 import { useAuthDispatch } from '../context/AuthProvider';

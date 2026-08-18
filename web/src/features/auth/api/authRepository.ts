@@ -1,3 +1,5 @@
+"use client";
+
 import { authApiClient } from './authApiClient';
 import type { LoginCredentials, RegisterData, AuthResponse, RefreshResponse, User } from '../types/auth.types';
 

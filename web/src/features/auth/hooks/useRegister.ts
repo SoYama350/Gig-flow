@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { authService } from '../api/authService';
 import { useAuthDispatch } from '../context/AuthProvider';

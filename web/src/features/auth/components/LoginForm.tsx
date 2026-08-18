@@ -1,10 +1,13 @@
+"use client";
+
 import React, { useState } from 'react';
 import { useLogin } from '../hooks';
 import { validateLoginForm } from '../validation/schemas';
 import { AuthFormWrapper } from './AuthFormWrapper';
 import { OAuthButtonGroup } from './OAuthButtonGroup';
 import { RememberMeCheckbox } from './RememberMeCheckbox';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -13,7 +16,7 @@ export function LoginForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   
   const { login, isLoading, error } = useLogin();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +30,7 @@ export function LoginForm() {
 
     const success = await login({ email, password, rememberMe });
     if (success) {
-      navigate('/dashboard'); // or redirect back to intended route
+      router.push('/dashboard'); // or redirect back to intended route
     }
   };
 
@@ -38,7 +41,7 @@ export function LoginForm() {
       footer={
         <p>
           Don't have an account?{' '}
-          <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+          <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
             Sign up
           </Link>
         </p>
@@ -93,7 +96,7 @@ export function LoginForm() {
           <RememberMeCheckbox checked={rememberMe} onChange={setRememberMe} />
 
           <div className="text-sm">
-            <Link to="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+            <Link href="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
               Forgot your password?
             </Link>
           </div>

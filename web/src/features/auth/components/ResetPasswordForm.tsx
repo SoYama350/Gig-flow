@@ -1,12 +1,15 @@
+"use client";
+
 import React, { useState } from 'react';
 import { useResetPassword } from '../hooks';
 import { validateResetPasswordForm } from '../validation/schemas';
 import { AuthFormWrapper } from './AuthFormWrapper';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
-import { Link, useSearchParams } from 'react-router-dom';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export function ResetPasswordForm() {
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
   const [password, setPassword] = useState('');
@@ -23,7 +26,7 @@ export function ResetPasswordForm() {
             This password reset link is invalid or has expired.
           </p>
           <div className="pt-4">
-            <Link to="/forgot-password" className="text-blue-600 hover:text-blue-500 font-medium">
+            <Link href="/forgot-password" className="text-blue-600 hover:text-blue-500 font-medium">
               Request a new link
             </Link>
           </div>
@@ -53,7 +56,7 @@ export function ResetPasswordForm() {
             Your password has been successfully reset. You can now log in with your new password.
           </p>
           <div className="pt-4">
-            <Link to="/login" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+            <Link href="/login" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
               Go to login
             </Link>
           </div>
