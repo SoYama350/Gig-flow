@@ -61,6 +61,23 @@ vercel build --prod --yes   # produces .vercel/output (prebuilt)
   cd web && vercel build --prod --yes && vercel deploy --prebuilt --temporary --yes
   ```
 
+### Deployment (GitHub Pages — static UI demo)
+- `.github/workflows/github-pages.yml` builds a fully static export
+  (`output: 'export'`, basePath `/Gig-flow`) and deploys to GitHub Pages
+  on every push to `main`.
+- `web/scripts/ghpages-build.mjs` temporarily moves `app/api` out (route
+  handlers can't be statically exported), builds, restores it.
+- `npm run build:ghpages` runs the same locally → `web/out/`.
+- In static mode the (app)/(auth) layouts skip server auth so the UI
+  renders without a backend (demo skeleton); API routes are absent, so
+  form submissions won't authenticate — use Vercel for the full app.
+- **One-time setup (admin only, UI)**: GitHub → Repo → Settings → Pages →
+  "Build and deployment" Source = **GitHub Actions**. The fine-grained
+  `GITHUB_TOKEN` used here lacks the Pages REST scope, so this cannot be
+  done via API. After enabling, re-run the "Deploy to GitHub Pages" workflow
+  → site goes live at `https://<owner>.github.io/Gig-flow/`.
+- Expected live Pages URL once enabled: https://soyama350.github.io/Gig-flow/
+
 ### Secrets
 - `.env.example` documents server-only keys (`GEMINI_API_KEY`, `JWT_SECRET`,
   `APP_URL`). **Never** prefix with `NEXT_PUBLIC_`. Set real values in the
