@@ -1,10 +1,14 @@
-import { Placeholder } from "@/app/_components/Placeholder";
+"use client";
+
+import Settings from "@/src/components/Settings";
+import { ToastContainer, useToast } from "@/src/lib/toast";
 
 export default function SettingsPage() {
+  const { toasts, showToast } = useToast();
   return (
-    <Placeholder
-      title="Settings"
-      description="Configure GigFlow to match your workflow."
-    />
+    <>
+      <Settings onShowToast={showToast} />
+      <ToastContainer toasts={toasts} />
+    </>
   );
 }
