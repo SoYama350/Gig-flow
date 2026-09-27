@@ -1,8 +1,19 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
-  Search, ExternalLink, Sparkles, Loader2, Copy, Check,
-  ChevronDown, RefreshCw, Trash2, Eye, CheckCheck, Globe, Save
+  Check,
+  CheckCheck,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Eye,
+  Globe,
+  Loader2,
+  RefreshCw,
+  Save,
+  Search,
+  Sparkles,
+  Trash2,
 } from "lucide-react";
 
 interface Gig {
@@ -30,6 +41,7 @@ interface GigsFeedProps {
 }
 
 const statusFilters = ["ALL", "NEW", "VIEWED", "APPLIED", "ARCHIVED"];
+
 const statusStyles: Record<string, string> = {
   NEW: "status-new",
   VIEWED: "status-viewed",
@@ -38,8 +50,14 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function GigsFeed({
-  gigs, onScrape, scraping, onStatusChange,
-  onGenerateProposal, onSaveProposal, generatingFor, userSkills
+  gigs,
+  onScrape,
+  scraping,
+  onStatusChange,
+  onGenerateProposal,
+  onSaveProposal,
+  generatingFor,
+  userSkills,
 }: GigsFeedProps) {
   const [filter, setFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,30 +68,36 @@ export default function GigsFeed({
   const [savingProposal, setSavingProposal] = useState<string | null>(null);
   const [proposalLang, setProposalLang] = useState<"arabic" | "english">("arabic");
 
-  const filtered = gigs.filter((g) => {
-    if (filter !== "ALL" && g.status !== filter) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        g.title.toLowerCase().includes(q) ||
-        g.description.toLowerCase().includes(q) ||
-        (g.requiredSkills || "").toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      gigs.filter((g) => {
+        if (filter !== "ALL" && g.status !== filter) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return (
+            g.title.toLowerCase().includes(q) ||
+            g.description.toLowerCase().includes(q) ||
+            (g.requiredSkills || "").toLowerCase().includes(q)
+          );
+        }
+        return true;
+      }),
+    [filter, gigs, searchQuery],
+  );
 
-  const copyProposal = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyProposal = async (id: string, text: string) => {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    }
     setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    window.setTimeout(() => setCopiedId(null), 2000);
   };
 
   const getMatchingSkills = (gig: Gig) => {
     if (!gig.requiredSkills || userSkills.length === 0) return [];
     const gigSkills = gig.requiredSkills.toLowerCase().split(",").map((s) => s.trim());
     return userSkills.filter((s) =>
-      gigSkills.some((gs) => gs.includes(s.toLowerCase()) || s.toLowerCase().includes(gs))
+      gigSkills.some((gs) => gs.includes(s.toLowerCase()) || s.toLowerCase().includes(gs)),
     );
   };
 
@@ -81,7 +105,7 @@ export default function GigsFeed({
     if (!gig.requiredSkills || userSkills.length === 0) return 0;
     const gigSkills = gig.requiredSkills.toLowerCase().split(",").map((s) => s.trim());
     const matches = userSkills.filter((s) =>
-      gigSkills.some((gs) => gs.includes(s.toLowerCase()) || s.toLowerCase().includes(gs))
+      gigSkills.some((gs) => gs.includes(s.toLowerCase()) || s.toLowerCase().includes(gs)),
     );
     return Math.round((matches.length / Math.max(gigSkills.length, 1)) * 100);
   };
@@ -137,28 +161,28 @@ export default function GigsFeed({
         new Date(g.scrapedAt).toLocaleDateString(),
       ]),
     ];
-    const csv = rows.map((r) => r.join(",")).join("\n");
+
+    const csv = rows.map((row) => row.join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `gigflow-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `gigflow-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
     URL.revokeObjectURL(url);
   };
 
   return (
     <div className="p-4 md:p-8 space-y-5 animate-fade-in-up">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Gigs Feed</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {filtered.length} gigs{filter !== "ALL" ? ` · ${filter}` : ""}
+            {filtered.length} gigs{filter !== "ALL" ? ` | ${filter}` : ""}
           </p>
         </div>
+
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Language toggle */}
           <div className="flex items-center gap-1 bg-dark-800 border border-white/6 rounded-xl p-1">
             <button
               onClick={() => setProposalLang("arabic")}
@@ -177,31 +201,46 @@ export default function GigsFeed({
               <Globe size={11} /> EN
             </button>
           </div>
-          <button onClick={exportCSV} className="btn-ghost text-xs py-2 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
-            ↓ CSV
+
+          <button
+            onClick={exportCSV}
+            className="btn-ghost text-xs py-2 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer"
+          >
+            CSV
           </button>
-          <button onClick={onScrape} disabled={scraping} className="btn-primary flex items-center gap-2 text-sm cursor-pointer">
+
+          <button
+            onClick={onScrape}
+            disabled={scraping}
+            className="btn-primary flex items-center gap-2 text-sm cursor-pointer"
+          >
             {scraping ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
             {scraping ? "Scraping..." : "Scrape"}
           </button>
         </div>
       </div>
 
-      {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <label htmlFor="gig-search" className="sr-only">
+            Search gigs
+          </label>
           <input
+            id="gig-search"
             type="text"
             placeholder="Search gigs..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search gigs"
             className="w-full bg-dark-800 border border-white/6 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors"
           />
         </div>
+
         <div className="flex gap-1.5 flex-wrap">
           {statusFilters.map((s) => {
             const count = s === "ALL" ? gigs.length : gigs.filter((g) => g.status === s).length;
+
             return (
               <button
                 key={s}
@@ -220,7 +259,6 @@ export default function GigsFeed({
         </div>
       </div>
 
-      {/* Bulk Actions Bar */}
       <AnimatePresence>
         {selectedIds.size > 0 && (
           <motion.div
@@ -232,30 +270,48 @@ export default function GigsFeed({
             <div className="flex items-center gap-3 glass-card rounded-xl px-4 py-3">
               <span className="text-sm text-slate-400 font-medium">{selectedIds.size} selected</span>
               <div className="flex gap-2 ml-auto flex-wrap">
-                <button onClick={() => bulkStatusChange("VIEWED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
+                <button
+                  onClick={() => bulkStatusChange("VIEWED")}
+                  className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer"
+                >
                   <Eye size={11} /> Viewed
                 </button>
-                <button onClick={() => bulkStatusChange("APPLIED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
+                <button
+                  onClick={() => bulkStatusChange("APPLIED")}
+                  className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer"
+                >
                   <CheckCheck size={11} /> Applied
                 </button>
-                <button onClick={() => bulkStatusChange("ARCHIVED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer text-rose-400 border-rose-500/20 hover:bg-rose-500/10">
+                <button
+                  onClick={() => bulkStatusChange("ARCHIVED")}
+                  className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer text-rose-400 border-rose-500/20 hover:bg-rose-500/10"
+                >
                   <Trash2 size={11} /> Archive
                 </button>
-                <button onClick={() => setSelectedIds(new Set())} className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer px-2">✕</button>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer px-2"
+                  aria-label="Clear selection"
+                >
+                  X
+                </button>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Gig List */}
-      <div className="space-y-3">
+      <div className="space-y-3" aria-live="polite">
         <AnimatePresence mode="popLayout">
           {filtered.length === 0 ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card rounded-2xl p-16 text-center">
-              <Search size={40} className="mx-auto mb-4 text-slate-700" />
+              <Search size={40} className="mx-auto mb-4 text-slate-700" aria-hidden="true" />
               <p className="text-slate-500 text-sm mb-4">No gigs found. Try scraping or adjusting filters.</p>
-              <button onClick={onScrape} disabled={scraping} className="btn-primary text-sm mx-auto inline-flex items-center gap-2 cursor-pointer">
+              <button
+                onClick={onScrape}
+                disabled={scraping}
+                className="btn-primary text-sm mx-auto inline-flex items-center gap-2 cursor-pointer"
+              >
                 <RefreshCw size={14} /> Scrape Now
               </button>
             </motion.div>
@@ -280,7 +336,6 @@ export default function GigsFeed({
                 >
                   <div className="p-4 md:p-5">
                     <div className="flex items-start gap-3">
-                      {/* Checkbox */}
                       <button
                         onClick={() => toggleSelect(gig.id)}
                         className={`mt-1 w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
@@ -291,36 +346,42 @@ export default function GigsFeed({
                         {isSelected && <Check size={10} />}
                       </button>
 
-                      {/* Platform badge */}
                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent-600 to-accent-800 flex items-center justify-center shrink-0 text-white text-[9px] font-bold uppercase tracking-tight">
                         {gig.platform.substring(0, 3)}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        {/* Title row */}
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2 flex-1">{gig.title}</h3>
+                          <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2 flex-1">
+                            {gig.title}
+                          </h3>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {gig.budget && (
                               <span className="text-xs font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
                                 {gig.budget}
                               </span>
                             )}
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${statusStyles[gig.status] || statusStyles.NEW}`}>
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${statusStyles[gig.status] || statusStyles.NEW}`}
+                            >
                               {gig.status}
                             </span>
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{gig.description}</p>
+                        <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">
+                          {gig.description}
+                        </p>
 
-                        {/* Skills row */}
                         <div className="flex flex-wrap gap-1.5 mb-3">
                           {gig.requiredSkills?.split(",").slice(0, 5).map((s) => {
                             const skill = s.trim();
                             const isMatch = matchingSkills.some(
-                              (ms) => ms.toLowerCase() === skill.toLowerCase() || skill.toLowerCase().includes(ms.toLowerCase())
+                              (ms) =>
+                                ms.toLowerCase() === skill.toLowerCase() ||
+                                skill.toLowerCase().includes(ms.toLowerCase()),
                             );
+
                             return (
                               <span
                                 key={s}
@@ -334,14 +395,15 @@ export default function GigsFeed({
                               </span>
                             );
                           })}
+
                           {matchScore > 0 && (
                             <span
                               className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
                                 matchScore >= 70
                                   ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                                   : matchScore >= 35
-                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                                  : "bg-slate-500/15 text-slate-400 border-slate-500/20"
+                                    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                    : "bg-slate-500/15 text-slate-400 border-slate-500/20"
                               }`}
                             >
                               {matchScore}% match
@@ -349,7 +411,6 @@ export default function GigsFeed({
                           )}
                         </div>
 
-                        {/* Action row */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <a
                             href={gig.url}
@@ -360,9 +421,11 @@ export default function GigsFeed({
                           >
                             <ExternalLink size={11} /> View
                           </a>
+
                           <button
                             onClick={() => onGenerateProposal(gig.id, proposalLang)}
                             disabled={generatingFor === gig.id}
+                            aria-label={`Generate ${proposalLang} AI proposal for ${gig.title}`}
                             className="btn-primary text-xs py-1.5 px-2.5 inline-flex items-center gap-1 rounded-lg cursor-pointer"
                           >
                             {generatingFor === gig.id ? (
@@ -371,11 +434,12 @@ export default function GigsFeed({
                               <Sparkles size={11} />
                             )}
                             {generatingFor === gig.id
-                              ? "Generating…"
+                              ? "Generating..."
                               : gig.proposal
-                              ? "Regenerate"
-                              : `AI Proposal (${proposalLang === "arabic" ? "AR" : "EN"})`}
+                                ? "Regenerate"
+                                : `AI Proposal (${proposalLang === "arabic" ? "AR" : "EN"})`}
                           </button>
+
                           <select
                             value={gig.status}
                             onChange={(e) => onStatusChange(gig.id, e.target.value)}
@@ -386,15 +450,20 @@ export default function GigsFeed({
                             <option value="APPLIED">APPLIED</option>
                             <option value="ARCHIVED">ARCHIVED</option>
                           </select>
+
                           {gig.proposal && (
                             <button
                               onClick={() => setExpandedGig(isExpanded ? null : gig.id)}
                               className="btn-ghost text-xs py-1.5 px-2.5 inline-flex items-center gap-1 rounded-lg cursor-pointer"
                             >
-                              <ChevronDown size={11} className={`transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                              <ChevronDown
+                                size={11}
+                                className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                              />
                               Proposal
                             </button>
                           )}
+
                           <span className="text-[10px] text-slate-600 font-mono ml-auto hidden sm:inline">
                             {new Date(gig.scrapedAt).toLocaleDateString()}
                           </span>
@@ -403,7 +472,6 @@ export default function GigsFeed({
                     </div>
                   </div>
 
-                  {/* Proposal panel */}
                   <AnimatePresence>
                     {isExpanded && gig.proposal && (
                       <motion.div
@@ -422,6 +490,7 @@ export default function GigsFeed({
                                 ({gig.proposal && /[\u0600-\u06FF]/.test(gig.proposal) ? "Arabic" : "English"})
                               </span>
                             </span>
+
                             <div className="flex gap-2">
                               {!isEditing ? (
                                 <>
@@ -432,7 +501,7 @@ export default function GigsFeed({
                                     Edit
                                   </button>
                                   <button
-                                    onClick={() => copyProposal(gig.id, gig.proposal!)}
+                                    onClick={() => void copyProposal(gig.id, gig.proposal!)}
                                     className="btn-ghost text-xs py-1 px-2.5 inline-flex items-center gap-1 rounded-lg cursor-pointer"
                                   >
                                     {copiedId === gig.id ? (
@@ -446,10 +515,14 @@ export default function GigsFeed({
                               ) : (
                                 <>
                                   <button
-                                    onClick={() => copyProposal(gig.id, editText)}
+                                    onClick={() => void copyProposal(gig.id, editText)}
                                     className="btn-ghost text-xs py-1 px-2.5 inline-flex items-center gap-1 rounded-lg cursor-pointer"
                                   >
-                                    {copiedId === gig.id ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                                    {copiedId === gig.id ? (
+                                      <Check size={11} className="text-emerald-400" />
+                                    ) : (
+                                      <Copy size={11} />
+                                    )}
                                     Copy
                                   </button>
                                   <button

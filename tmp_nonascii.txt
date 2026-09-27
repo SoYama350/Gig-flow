@@ -1,0 +1,4 @@
+159:             {filtered.length} gigs{filter !== "ALL" ? ` · ${filter}` : ""}
+183:             ↓ CSV
+249:                 <button onClick={() => setSelectedIds(new Set())} className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer px-2">✕</button>
+380:                               ? "Generating…"
