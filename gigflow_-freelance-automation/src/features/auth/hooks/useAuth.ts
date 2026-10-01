@@ -1,6 +1,8 @@
 import { useAuthState, useAuthDispatch } from '../context/AuthProvider';
 import { useLogout } from './useLogout';
 
+export { useAuthState, useAuthDispatch };
+
 /**
  * Primary hook for consuming auth state.
  * Only returns the data needed for rendering, plus the logout action.

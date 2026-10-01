@@ -12,7 +12,7 @@ export interface Gig {
   platform: string;
   requiredSkills: string | null;
   scrapedAt: string;
-  status: 'NEW' | 'VIEWED' | 'APPLIED' | 'ARCHIVED';
+  status: 'NEW' | 'VIEWED' | 'PROPOSAL_READY' | 'READY_TO_APPLY' | 'APPLIED' | 'ARCHIVED';
   proposal: string | null;
 }
 
@@ -33,7 +33,12 @@ export interface Settings {
 
 export async function getGigs(): Promise<Gig[]> {
   const result = await chrome.storage.local.get('gigs');
-  return (result.gigs as Gig[]) || [];
+  const gigs = ((result.gigs as Gig[]) || []).map((gig) => ({
+    ...gig,
+    status: gig.status === 'APPLIED' ? 'PROPOSAL_READY' : gig.status,
+  }));
+  await chrome.storage.local.set({ gigs });
+  return gigs;
 }
 
 export async function upsertGig(gig: Omit<Gig, 'id' | 'status' | 'proposal' | 'scrapedAt'>): Promise<boolean> {
@@ -77,7 +82,7 @@ export async function updateGigProposal(id: string, proposal: string): Promise<v
   const gigs = await getGigs();
   const idx = gigs.findIndex((g) => g.id === id);
   if (idx >= 0) {
-    gigs[idx] = { ...gigs[idx], proposal, status: 'APPLIED' };
+    gigs[idx] = { ...gigs[idx], proposal, status: 'PROPOSAL_READY' };
     await chrome.storage.local.set({ gigs });
   }
 }
@@ -91,7 +96,7 @@ export async function getStats() {
   return {
     totalGigs: gigs.length,
     newGigs: gigs.filter((g) => g.status === 'NEW').length,
-    appliedGigs: gigs.filter((g) => g.status === 'APPLIED').length,
+    appliedGigs: gigs.filter((g) => g.status === 'PROPOSAL_READY' || g.status === 'READY_TO_APPLY').length,
     archivedGigs: gigs.filter((g) => g.status === 'ARCHIVED').length,
   };
 }

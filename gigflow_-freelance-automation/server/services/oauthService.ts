@@ -37,7 +37,7 @@ export class OAuthService {
     return provider.getAuthUrl(state);
   }
 
-  async handleCallback(providerName: string, code: string) {
+  async handleCallback(providerName: string, code: string, state?: string) {
     const provider = this.providers.get(providerName);
     if (!provider) {
       const error = new Error(`OAuth provider ${providerName} not found`);
@@ -45,16 +45,26 @@ export class OAuthService {
       throw error;
     }
 
+    if (!code) {
+      const error = new Error('OAuth callback is missing a code');
+      (error as any).code = AUTH_ERROR_CODES.OAUTH_FAILED;
+      throw error;
+    }
+
+    if (state !== undefined && state.trim().length === 0) {
+      const error = new Error('OAuth callback state cannot be empty');
+      (error as any).code = AUTH_ERROR_CODES.OAUTH_FAILED;
+      throw error;
+    }
+
     try {
       const oauthData = await provider.getUserData(code);
-      
-      // Find or create user
+
       let user = await this.prisma.user.findUnique({
         where: { email: oauthData.email },
       });
 
       if (user) {
-        // Link account if not already linked
         if (!user.googleId && providerName === 'google') {
           user = await this.prisma.user.update({
             where: { id: user.id },
@@ -62,7 +72,6 @@ export class OAuthService {
           });
         }
       } else {
-        // Create new user (automatically verified since it's via OAuth)
         user = await this.prisma.user.create({
           data: {
             email: oauthData.email,
@@ -73,9 +82,8 @@ export class OAuthService {
         });
       }
 
-      // Generate tokens
       const accessToken = this.tokenService.generateAccessToken(user.id);
-      const refreshToken = await this.tokenService.generateRefreshToken(user.id, 30); // 30 days default for OAuth
+      const refreshToken = await this.tokenService.generateRefreshToken(user.id, 30);
 
       return { user, accessToken, refreshToken };
 

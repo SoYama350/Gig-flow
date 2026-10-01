@@ -8,6 +8,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: `file:${path.resolve("dev.db")}`,
+    url: process.env.GIGFLOW_DATABASE_URL ?? `file:${path.resolve("dev.db")}`,
   },
 });

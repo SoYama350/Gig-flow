@@ -4,6 +4,7 @@ import { OAuthService } from '../services/oauthService.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { loginRateLimiter } from '../middleware/rateLimiter.js';
 import { TOKEN_CONFIG } from '../../src/features/auth/types/auth.constants.js';
+import { createOAuthStateCookieOptions, generateOAuthState, matchesOAuthState } from '../utils/oauthState.js';
 
 export function createAuthRoutes(authService: AuthService, oauthService: OAuthService): Router {
   const router = Router();
@@ -34,9 +35,9 @@ export function createAuthRoutes(authService: AuthService, oauthService: OAuthSe
   router.post('/login', loginRateLimiter, async (req, res, next) => {
     try {
       const { email, password, rememberMe } = req.body;
-      const { user, accessToken, refreshToken } = await authService.login({ email, password, rememberMe });
-      
-      const ttlDays = rememberMe ? TOKEN_CONFIG.REMEMBER_ME_REFRESH_TTL_DAYS : TOKEN_CONFIG.DEFAULT_REFRESH_TTL_DAYS;
+      const { user, accessToken, refreshToken, rememberMe: sessionRememberMe } = await authService.login({ email, password, rememberMe });
+
+      const ttlDays = sessionRememberMe ? TOKEN_CONFIG.REMEMBER_ME_REFRESH_TTL_DAYS : TOKEN_CONFIG.DEFAULT_REFRESH_TTL_DAYS;
       setRefreshCookie(res, refreshToken, ttlDays);
 
       res.json({ user, accessToken });
@@ -52,10 +53,9 @@ export function createAuthRoutes(authService: AuthService, oauthService: OAuthSe
         return res.status(401).json({ code: 'TOKEN_INVALID', message: 'No refresh token provided' });
       }
 
-      const { accessToken, refreshToken } = await authService.refreshSession(currentRefreshToken);
-      
-      // Assume default TTL for refreshed tokens unless we store the preference
-      setRefreshCookie(res, refreshToken, TOKEN_CONFIG.DEFAULT_REFRESH_TTL_DAYS);
+      const { accessToken, refreshToken, rememberMe } = await authService.refreshSession(currentRefreshToken);
+      const ttlDays = rememberMe ? TOKEN_CONFIG.REMEMBER_ME_REFRESH_TTL_DAYS : TOKEN_CONFIG.DEFAULT_REFRESH_TTL_DAYS;
+      setRefreshCookie(res, refreshToken, ttlDays);
 
       res.json({ accessToken, expiresIn: TOKEN_CONFIG.ACCESS_TOKEN_TTL_SECONDS });
     } catch (error) {
@@ -129,8 +129,10 @@ export function createAuthRoutes(authService: AuthService, oauthService: OAuthSe
   // OAuth endpoints
   router.get('/oauth/:provider', (req, res) => {
     try {
-      const provider = req.params.provider;
-      const state = req.query.state as string || 'default_state';
+      const provider = req.params.provider.toLowerCase();
+      const state = generateOAuthState();
+      res.cookie('oauth_state', state, createOAuthStateCookieOptions());
+
       const url = oauthService.getAuthUrl(provider, state);
       res.redirect(url);
     } catch (error) {
@@ -140,22 +142,24 @@ export function createAuthRoutes(authService: AuthService, oauthService: OAuthSe
 
   router.get('/oauth/:provider/callback', async (req, res, next) => {
     try {
-      const provider = req.params.provider;
+      const provider = req.params.provider.toLowerCase();
       const code = req.query.code as string;
-      
-      const { accessToken, refreshToken } = await oauthService.handleCallback(provider, code);
-      
-      setRefreshCookie(res, refreshToken, 30); // 30 days for OAuth
+      const requestState = req.query.state as string | undefined;
+      const cookieState = req.cookies?.oauth_state as string | undefined;
 
-      // Redirect back to frontend which will extract token (could use query params or postMessage)
-      // For a SPA, usually we redirect to a special route that saves token and redirects to dashboard.
-      // But we are storing access token in memory. So we can't just redirect with it securely unless it's a short-lived query param.
-      // A common pattern is setting it as a cookie that JS can read, or redirecting to a success page that passes it to the parent window.
-      // To keep it simple and secure: we redirect, the client reads the refresh token cookie automatically.
-      // BUT our client needs the access token. 
-      // Solution for this architecture: we redirect to a front-end route /oauth/callback?access_token=... (short lived).
-      res.redirect(`/oauth/callback?access_token=${accessToken}`);
+      if (!matchesOAuthState(cookieState, requestState)) {
+        return res.status(400).redirect('/login?error=oauth_state_invalid');
+      }
+
+      const { refreshToken } = await oauthService.handleCallback(provider, code, requestState);
+
+      setRefreshCookie(res, refreshToken, 30);
+      res.clearCookie('oauth_state');
+
+      const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/oauth/callback`);
     } catch (error) {
+      res.clearCookie('oauth_state');
       res.redirect('/login?error=oauth_failed');
     }
   });

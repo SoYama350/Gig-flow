@@ -131,7 +131,7 @@ export default function App() {
       const userSkills = skills.split(',').map((s) => s.trim()).filter(Boolean);
       const proposal = await generateProposal({ gig, userSkills, userName: name, userBio: bio, apiKey: settings.apiKey, language });
       await updateGigProposal(gigId, proposal);
-      setGigs((prev) => prev.map((g) => (g.id === gigId ? { ...g, proposal, status: 'APPLIED' } : g)));
+      setGigs((prev) => prev.map((g) => (g.id === gigId ? { ...g, proposal, status: 'PROPOSAL_READY' } : g)));
       const s = await getStats();
       setStats(s);
       showToast('✓ Proposal generated!');

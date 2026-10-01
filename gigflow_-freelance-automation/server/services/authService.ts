@@ -70,27 +70,24 @@ export class AuthService {
 
     const accessToken = this.tokenService.generateAccessToken(user.id);
     const ttlDays = data.rememberMe ? 30 : 7;
-    const refreshToken = await this.tokenService.generateRefreshToken(user.id, ttlDays);
+    const refreshToken = await this.tokenService.generateRefreshToken(user.id, ttlDays, data.rememberMe);
 
-    return { user, accessToken, refreshToken };
+    return { user, accessToken, refreshToken, rememberMe: data.rememberMe };
   }
 
   /**
    * Refreshes a session using a refresh token.
    */
   async refreshSession(refreshToken: string) {
-    const userId = await this.tokenService.validateRefreshToken(refreshToken);
-    
-    if (!userId) {
+    const rotated = await this.tokenService.rotateRefreshToken(refreshToken);
+
+    if (!rotated) {
       const error = new Error('Invalid refresh token');
       (error as any).code = AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID;
       throw error;
     }
 
-    // Invalidate the old token (token rotation)
-    await this.tokenService.invalidateRefreshToken(refreshToken);
-
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: rotated.userId } });
     if (!user) {
       const error = new Error('User not found');
       (error as any).code = AUTH_ERROR_CODES.SESSION_INVALID;
@@ -98,10 +95,11 @@ export class AuthService {
     }
 
     const newAccessToken = this.tokenService.generateAccessToken(user.id);
-    // Inherit the same TTL configuration ideally, but for now default to 7 days on rotation
-    const newRefreshToken = await this.tokenService.generateRefreshToken(user.id, 7);
-
-    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+    return {
+      accessToken: newAccessToken,
+      refreshToken: rotated.refreshToken,
+      rememberMe: rotated.rememberMe,
+    };
   }
 
   /**

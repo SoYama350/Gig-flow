@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Key, Clock, Globe, Save, CheckCircle2, RefreshCw, Shield, ChevronRight, MoonStar, SunMedium } from "lucide-react";
 import { type Theme } from "../theme";
+import { httpClient } from "../shared/api/httpClient";
 
 interface SettingsProps {
   theme: Theme;
@@ -30,14 +31,13 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
     const stored = localStorage.getItem("gigflow_settings");
     if (stored) {
       const s = JSON.parse(stored);
-      setApiKey(s.apiKey || "");
       setScrapeInterval(s.scrapeInterval || 0);
       setPlatform(s.platform || "mostaql");
     }
   }, []);
 
   const handleSave = () => {
-    const settings = { apiKey, scrapeInterval, platform };
+    const settings = { scrapeInterval, platform };
     localStorage.setItem("gigflow_settings", JSON.stringify(settings));
     setSaved(true);
     onShowToast("Settings saved!");
@@ -46,38 +46,22 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
   };
 
   const handleTestKey = async () => {
-    if (!apiKey) {
-      onShowToast("Enter an API key first", "error");
-      return;
-    }
-    onShowToast("Testing API key...");
+    onShowToast("Testing server-side Gemini key...");
     try {
-      const res = await fetch("/api/test-key", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey }),
-      });
-      if (res.ok) {
-        onShowToast("API key is valid ✓");
-      } else {
-        onShowToast("API key is invalid or has no quota", "error");
-      }
-    } catch {
-      onShowToast("Could not connect to test endpoint", "error");
+      await httpClient.post("/api/test-key");
+      onShowToast("Server Gemini key is valid ✓");
+    } catch (error: any) {
+      onShowToast(error?.message || "Server Gemini key is invalid or has no quota", "error");
     }
   };
 
   const handleClearDB = async () => {
     if (!confirm("Are you sure? This will delete ALL scraped gigs. This cannot be undone.")) return;
     try {
-      const res = await fetch("/api/gigs/all", { method: "DELETE" });
-      if (res.ok) {
-        onShowToast("All gigs cleared from database");
-      } else {
-        onShowToast("Failed to clear gigs", "error");
-      }
-    } catch {
-      onShowToast("Network error", "error");
+      await httpClient.delete("/api/gigs/all");
+      onShowToast("All gigs cleared from database");
+    } catch (error: any) {
+      onShowToast(error?.message || "Failed to clear gigs", "error");
     }
   };
 
@@ -137,8 +121,9 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="AIza..."
+                placeholder="Server-side key configured in .env.local"
                 className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors font-mono"
+                readOnly
               />
               <button
                 type="button"
@@ -153,11 +138,7 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
             </button>
           </div>
           <p className="text-xs text-slate-600">
-            Get your key at{" "}
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:underline">
-              aistudio.google.com
-            </a>
-            . It's free for personal use.
+            Store the Gemini key in the server environment, not in the browser. Set GEMINI_API_KEY in your .env.local file and restart the app.
           </p>
         </motion.div>
 

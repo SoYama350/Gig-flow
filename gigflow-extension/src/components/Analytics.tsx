@@ -37,7 +37,7 @@ export default function Analytics({ gigs, userSkills }: AnalyticsProps) {
     const byStatus = {
       NEW: gigs.filter((g) => g.status === "NEW").length,
       VIEWED: gigs.filter((g) => g.status === "VIEWED").length,
-      APPLIED: gigs.filter((g) => g.status === "APPLIED").length,
+      PROPOSAL_READY: gigs.filter((g) => g.status === "PROPOSAL_READY" || g.status === "READY_TO_APPLY").length,
       ARCHIVED: gigs.filter((g) => g.status === "ARCHIVED").length,
     };
 
@@ -84,12 +84,12 @@ export default function Analytics({ gigs, userSkills }: AnalyticsProps) {
     return { total, byStatus, dailyData, maxDay, topSkills, maxSkill, avgMatch, highMatch };
   }, [gigs, userSkills]);
 
-  const applyRate = stats.total > 0 ? Math.round((stats.byStatus.APPLIED / stats.total) * 100) : 0;
-  const viewRate = stats.total > 0 ? Math.round(((stats.byStatus.VIEWED + stats.byStatus.APPLIED) / stats.total) * 100) : 0;
+  const applyRate = stats.total > 0 ? Math.round((stats.byStatus.PROPOSAL_READY / stats.total) * 100) : 0;
+  const viewRate = stats.total > 0 ? Math.round(((stats.byStatus.VIEWED + stats.byStatus.PROPOSAL_READY) / stats.total) * 100) : 0;
 
   const kpiCards = [
-    { label: "Apply Rate", value: `${applyRate}%`, sub: `${stats.byStatus.APPLIED} applied`, color: "text-emerald-400", bar: applyRate, barColor: "bg-emerald-500" },
-    { label: "View Rate", value: `${viewRate}%`, sub: `${stats.byStatus.VIEWED + stats.byStatus.APPLIED} viewed`, color: "text-cyan-400", bar: viewRate, barColor: "bg-cyan-500" },
+    { label: "Proposal Ready", value: `${applyRate}%`, sub: `${stats.byStatus.PROPOSAL_READY} ready`, color: "text-emerald-400", bar: applyRate, barColor: "bg-emerald-500" },
+    { label: "View Rate", value: `${viewRate}%`, sub: `${stats.byStatus.VIEWED + stats.byStatus.PROPOSAL_READY} viewed`, color: "text-cyan-400", bar: viewRate, barColor: "bg-cyan-500" },
     { label: "Avg Match", value: `${stats.avgMatch}%`, sub: `${stats.highMatch} high-match gigs`, color: "text-accent-400", bar: stats.avgMatch, barColor: "bg-accent-500" },
     { label: "With Proposals", value: `${gigs.filter((g) => g.proposal).length}`, sub: "AI proposals written", color: "text-purple-400", bar: stats.total > 0 ? (gigs.filter((g) => g.proposal).length / stats.total) * 100 : 0, barColor: "bg-purple-500" },
   ];
@@ -137,7 +137,7 @@ export default function Analytics({ gigs, userSkills }: AnalyticsProps) {
             {[
               { label: "New", key: "NEW" as const, color: "bg-accent-500", textColor: "text-accent-400" },
               { label: "Viewed", key: "VIEWED" as const, color: "bg-cyan-500", textColor: "text-cyan-400" },
-              { label: "Applied", key: "APPLIED" as const, color: "bg-emerald-500", textColor: "text-emerald-400" },
+              { label: "Proposal Ready", key: "PROPOSAL_READY" as const, color: "bg-emerald-500", textColor: "text-emerald-400" },
               { label: "Archived", key: "ARCHIVED" as const, color: "bg-slate-500", textColor: "text-slate-400" },
             ].map((item) => {
               const count = stats.byStatus[item.key];

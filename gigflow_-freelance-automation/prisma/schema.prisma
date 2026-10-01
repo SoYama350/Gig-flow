@@ -29,6 +29,7 @@ model User {
 
   skills            Skill[]
   refreshTokens     RefreshToken[]
+  userGigs          UserGig[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -40,6 +41,7 @@ model RefreshToken {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
+  rememberMe Boolean @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -62,6 +64,23 @@ model Gig {
   requiredSkills String?
   scrapedAt      DateTime @default(now())
   matchScore     Float?
-  status         String   @default("NEW")
-  proposal       String?
+
+  userGigs       UserGig[]
+}
+
+model UserGig {
+  id        String   @id @default(uuid())
+  userId    String
+  gigId     String
+  status    String   @default("NEW")
+  proposal  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gig       Gig      @relation(fields: [gigId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gigId])
+  @@index([userId])
+  @@index([gigId])
 }

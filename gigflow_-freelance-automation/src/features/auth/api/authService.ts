@@ -48,15 +48,16 @@ export const authService = {
   },
 
   async restoreSession(): Promise<User | null> {
-    // Attempt a silent refresh to get an access token
     try {
-      await this.refreshSession();
-      // If refresh succeeded, we now have an access token in memory.
-      // Fetch the user profile.
-      return await authRepository.getMe();
+      const me = await authRepository.getMe();
+      return me;
     } catch {
-      // No valid session
-      return null;
+      try {
+        await this.refreshSession();
+        return await authRepository.getMe();
+      } catch {
+        return null;
+      }
     }
   },
 

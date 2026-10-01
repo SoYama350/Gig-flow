@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, X } from "lucide-react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import {
   LoginForm,
   RegisterForm,
@@ -13,8 +13,12 @@ import {
   ResetPasswordForm,
   ProtectedRoute,
   GuestRoute,
-  EmailVerificationNotice
+  EmailVerificationNotice,
 } from "./features/auth";
+import { useAuthDispatch } from "./features/auth/hooks/useAuth";
+import { authService } from "./features/auth/api/authService";
+import { tokenManager } from "./features/auth/utils/tokenManager";
+import { httpClient } from "./shared/api/httpClient";
 import { type Theme, applyThemePreference, getInitialTheme } from "./theme";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
@@ -67,6 +71,43 @@ function saveLastScraped(date: string) {
   localStorage.setItem("gigflow_lastScraped", date);
 }
 
+function OAuthCallbackPage() {
+  const [status, setStatus] = useState("Completing sign-in...");
+  const navigate = useNavigate();
+  const dispatch = useAuthDispatch();
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await authService.refreshSession();
+        const user = await authService.restoreSession();
+
+        if (user) {
+          dispatch({ type: 'RESTORE_SESSION', payload: { user, expiresIn: response.expiresIn } });
+          setStatus('Welcome back! Redirecting...');
+          window.setTimeout(() => navigate('/', { replace: true }), 600);
+          return;
+        }
+      } catch {
+        // fall through to login redirect below
+      }
+
+      setStatus('Sign-in failed. Please try again.');
+      tokenManager.clearToken();
+      window.setTimeout(() => navigate('/login', { replace: true }), 1500);
+    })();
+  }, [dispatch, navigate]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-gray-900">
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Google sign-in</div>
+        <p className="text-sm text-slate-600 dark:text-slate-300">{status}</p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────
 export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -93,25 +134,42 @@ export default function App() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const protectedRequest = useCallback(async <T,>(handler: () => Promise<T>): Promise<T> => {
+    try {
+      return await handler();
+    } catch (error: any) {
+      if (error && error.status === 401) {
+        try {
+          const refreshed = await authService.refreshSession();
+          if (refreshed?.accessToken) {
+            return await handler();
+          }
+        } catch {
+          tokenManager.clearToken();
+          window.location.href = '/login';
+        }
+      }
+      throw error;
+    }
+  }, []);
+
   const fetchGigs = useCallback(async () => {
     try {
-      const res = await fetch("/api/gigs");
-      const data = await res.json();
+      const data = await protectedRequest(() => httpClient.get<Gig[]>('/api/gigs'));
       setGigs(data);
     } catch (e) {
       console.error("Error fetching gigs:", e);
     }
-  }, []);
+  }, [protectedRequest]);
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/stats");
-      const data = await res.json();
+      const data = await protectedRequest(() => httpClient.get<Stats>('/api/stats'));
       setStats(data);
     } catch (e) {
       console.error("Error fetching stats:", e);
     }
-  }, []);
+  }, [protectedRequest]);
 
   useEffect(() => {
     fetchGigs();
@@ -178,13 +236,11 @@ export default function App() {
         } catch (e) {}
       }
 
-      const res = await fetch("/api/scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform, skills: userSkills }),
-      });
-      const data = await res.json();
-      if (res.ok) {
+      const data = await protectedRequest(() => httpClient.post<{ message: string; total: number; processed: number }>('/api/scrape', {
+        platform,
+        skills: userSkills,
+      }));
+      if (data) {
         const now = new Date().toISOString();
         setLastScraped(now);
         saveLastScraped(now);
@@ -202,11 +258,9 @@ export default function App() {
         if (!silent) showToast(`✓ Scraped ${data.processed} ${platformName} gigs successfully`);
         fetchGigs();
         fetchStats();
-      } else {
-        if (!silent) showToast(data.error || "Scraping failed", "error");
       }
-    } catch (e) {
-      if (!silent) showToast("Network error during scraping", "error");
+    } catch (e: any) {
+      if (!silent) showToast(e?.message || "Network error during scraping", "error");
     } finally {
       setScraping(false);
     }
@@ -214,17 +268,11 @@ export default function App() {
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/gigs/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) {
-        setGigs((prev) => prev.map((g) => (g.id === id ? { ...g, status } : g)));
-        fetchStats();
-      }
-    } catch (e) {
-      showToast("Failed to update status", "error");
+      const data = await protectedRequest(() => httpClient.patch<Gig>(`/api/gigs/${id}/status`, { status }));
+      setGigs((prev) => prev.map((g) => (g.id === id ? { ...g, status: data.status, proposal: data.proposal } : g)));
+      fetchStats();
+    } catch (e: any) {
+      showToast(e?.message || "Failed to update status", "error");
     }
   };
 
@@ -236,28 +284,18 @@ export default function App() {
       const settingsApiKey = settingsRaw ? JSON.parse(settingsRaw).apiKey : null;
 
       const userSkills = skills.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await fetch("/api/generate-proposal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gigId,
-          userSkills,
-          userName: name,
-          userBio: bio,
-          apiKey: settingsApiKey || undefined,
-          language
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setGigs((prev) => prev.map((g) => (g.id === gigId ? { ...g, proposal: data.proposal, status: "APPLIED" } : g)));
-        fetchStats();
-        showToast("✓ Proposal generated!");
-      } else {
-        showToast(data.error || "Generation failed", "error");
-      }
-    } catch (e) {
-      showToast("Network error", "error");
+      const data = await protectedRequest(() => httpClient.post<{ proposal: string }>('/api/generate-proposal', {
+        gigId,
+        userSkills,
+        userName: name,
+        userBio: bio,
+        language,
+      }));
+      setGigs((prev) => prev.map((g) => (g.id === gigId ? { ...g, proposal: data.proposal, status: "PROPOSAL_READY" } : g)));
+      fetchStats();
+      showToast("✓ Proposal generated!");
+    } catch (e: any) {
+      showToast(e?.message || "Network error", "error");
     } finally {
       setGeneratingFor(null);
     }
@@ -265,20 +303,11 @@ export default function App() {
 
   const handleSaveProposal = async (gigId: string, proposal: string) => {
     try {
-      const res = await fetch(`/api/gigs/${gigId}/proposal`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposal }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setGigs((prev) => prev.map((g) => (g.id === gigId ? { ...g, proposal } : g)));
-        showToast("✓ Proposal saved successfully");
-      } else {
-        showToast(data.error || "Failed to save proposal", "error");
-      }
-    } catch (e) {
-      showToast("Network error saving proposal", "error");
+      const data = await protectedRequest(() => httpClient.patch<Gig>(`/api/gigs/${gigId}/proposal`, { proposal }));
+      setGigs((prev) => prev.map((g) => (g.id === gigId ? { ...g, proposal: data.proposal, status: data.status } : g)));
+      showToast("✓ Proposal saved successfully");
+    } catch (e: any) {
+      showToast(e?.message || "Network error saving proposal", "error");
     }
   };
 
@@ -287,18 +316,12 @@ export default function App() {
     setProfileLoading(true);
     try {
       const skillArray = skills.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await fetch("/api/user/skills", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, bio, skills: skillArray }),
-      });
-      if (res.ok) {
-        setProfileMessage("Profile saved successfully!");
-        showToast("✓ Profile saved");
-        setTimeout(() => setProfileMessage(""), 3000);
-      }
-    } catch (e) {
-      setProfileMessage("Failed to save profile");
+      await protectedRequest(() => httpClient.post('/api/user/skills', { name, bio, skills: skillArray }));
+      setProfileMessage("Profile saved successfully!");
+      showToast("✓ Profile saved");
+      setTimeout(() => setProfileMessage(""), 3000);
+    } catch (e: any) {
+      setProfileMessage(e?.message || "Failed to save profile");
     } finally {
       setProfileLoading(false);
     }
@@ -340,6 +363,7 @@ export default function App() {
             </div>
           </GuestRoute>
         } />
+        <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
         {/* Protected App Routes */}
         <Route path="/*" element={

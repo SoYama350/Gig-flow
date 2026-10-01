@@ -5,6 +5,7 @@ import { OAuthService } from '../services/oauthService.js';
 import { TokenService } from '../services/tokenService.js';
 import { EmailService } from '../services/emailService.js';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
+import { GoogleOAuthProvider } from '../services/googleOAuthProvider.js';
 
 export function createApiRouter(prisma: PrismaClient) {
   const router = Router();
@@ -13,9 +14,14 @@ export function createApiRouter(prisma: PrismaClient) {
   const emailService = new EmailService();
   const authService = new AuthService(prisma, tokenService, emailService);
   const oauthService = new OAuthService(prisma, tokenService);
-  
-  // Note: Register actual OAuth providers here when implementing them.
-  // oauthService.registerProvider('google', new GoogleOAuthProvider(clientId, clientSecret, redirectUri));
+
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI ?? `${process.env.APP_URL ?? 'http://localhost:3000'}/api/auth/oauth/google/callback`;
+
+  if (googleClientId && googleClientSecret) {
+    oauthService.registerProvider('google', new GoogleOAuthProvider(googleClientId, googleClientSecret, googleRedirectUri));
+  }
 
   const authRouter = createAuthRoutes(authService, oauthService);
 

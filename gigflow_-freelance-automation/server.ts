@@ -14,7 +14,15 @@ import { TokenService } from "./server/services/tokenService.js";
 
 dotenv.config({ path: ".env.local" });
 
-const adapter = new PrismaBetterSqlite3({ url: `file:${path.resolve("dev.db")}` });
+const requiredEnv = ['JWT_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+}
+
+const adapter = new PrismaBetterSqlite3({
+  url: process.env.GIGFLOW_DATABASE_URL ?? `file:${path.resolve("dev.db")}`,
+});
 const prisma = new PrismaClient({ adapter });
 
 async function startServer() {
@@ -35,8 +43,41 @@ async function startServer() {
 
   // ── API Routes ──────────────────────────────────────────
 
+  const serializeUserGig = (userGig: any) => {
+    const gig = userGig.gig;
+    return {
+      ...gig,
+      status: userGig.status,
+      proposal: userGig.proposal,
+      userGigId: userGig.id,
+    };
+  };
+
+  const ensureUserGigForUser = async (userId: string, gigId: string) => {
+    const existing = await prisma.userGig.findUnique({
+      where: { userId_gigId: { userId, gigId } },
+      include: { gig: true },
+    });
+
+    if (existing) return existing;
+
+    return prisma.userGig.create({
+      data: {
+        userId,
+        gigId,
+        status: "NEW",
+        proposal: null,
+      },
+      include: { gig: true },
+    });
+  };
+
   // 1. Trigger Scraper
   app.post("/api/scrape", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     try {
       const { platform } = req.body;
       const pages = 2; // Scrape 2 pages by default for deeper search
@@ -99,25 +140,64 @@ async function startServer() {
 
   // 2. Fetch Gigs
   app.get("/api/gigs", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     try {
       const { status, search } = req.query;
-      const where: any = {};
-      if (status && status !== "ALL") {
-        where.status = status as string;
-      }
-      if (search) {
-        where.OR = [
-          { title: { contains: search as string } },
-          { description: { contains: search as string } },
-          { requiredSkills: { contains: search as string } },
-        ];
-      }
-      const gigs = await prisma.gig.findMany({
-        where,
-        orderBy: { scrapedAt: "desc" },
-        take: 100,
+      const userGigRows = await prisma.userGig.findMany({
+        where: { userId: req.user.id },
+        include: { gig: true },
+        orderBy: { updatedAt: "desc" },
+        take: 200,
       });
-      res.json(gigs);
+
+      const existingGigIds = new Set(userGigRows.map((row) => row.gigId));
+      const globalGigRows = await prisma.gig.findMany({
+        where: search ? {
+          OR: [
+            { title: { contains: search as string } },
+            { description: { contains: search as string } },
+            { requiredSkills: { contains: search as string } },
+          ],
+        } : undefined,
+        orderBy: { scrapedAt: "desc" },
+        take: 200,
+      });
+
+      for (const gig of globalGigRows) {
+        if (!existingGigIds.has(gig.id)) {
+          await prisma.userGig.create({
+            data: {
+              userId: req.user.id,
+              gigId: gig.id,
+              status: "NEW",
+              proposal: null,
+            },
+          });
+          existingGigIds.add(gig.id);
+        }
+      }
+
+      const refreshedUserGigs = await prisma.userGig.findMany({
+        where: {
+          userId: req.user.id,
+          ...(status && status !== "ALL" ? { status: status as string } : {}),
+          ...(search ? { gig: {
+            OR: [
+              { title: { contains: search as string } },
+              { description: { contains: search as string } },
+              { requiredSkills: { contains: search as string } },
+            ],
+          } } : {}),
+        },
+        include: { gig: true },
+        orderBy: { updatedAt: "desc" },
+        take: 200,
+      });
+
+      res.json(refreshedUserGigs.map(serializeUserGig));
     } catch (error) {
       console.error("[API] Failed to fetch gigs:", error);
       res.status(500).json({ error: "Failed to fetch gigs" });
@@ -126,17 +206,24 @@ async function startServer() {
 
   // 3. Update Gig Status
   app.patch("/api/gigs/:id/status", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     try {
       const { status } = req.body;
-      const validStatuses = ["NEW", "VIEWED", "APPLIED", "ARCHIVED"];
+      const validStatuses = ["NEW", "VIEWED", "PROPOSAL_READY", "APPLIED", "ARCHIVED"];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
-      const gig = await prisma.gig.update({
-        where: { id: req.params.id },
+
+      const userGig = await ensureUserGigForUser(req.user.id, req.params.id);
+      const updated = await prisma.userGig.update({
+        where: { id: userGig.id },
         data: { status },
+        include: { gig: true },
       });
-      res.json(gig);
+      res.json(serializeUserGig(updated));
     } catch (error) {
       res.status(500).json({ error: "Failed to update status" });
     }
@@ -144,16 +231,22 @@ async function startServer() {
 
   // 3b. Update Gig Proposal (save edited proposal text)
   app.patch("/api/gigs/:id/proposal", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     try {
       const { proposal } = req.body;
       if (typeof proposal !== "string") {
         return res.status(400).json({ error: "Invalid proposal text" });
       }
-      const gig = await prisma.gig.update({
-        where: { id: req.params.id },
-        data: { proposal },
+      const userGig = await ensureUserGigForUser(req.user.id, req.params.id);
+      const updated = await prisma.userGig.update({
+        where: { id: userGig.id },
+        data: { proposal, status: "PROPOSAL_READY" },
+        include: { gig: true },
       });
-      res.json(gig);
+      res.json(serializeUserGig(updated));
     } catch (error) {
       res.status(500).json({ error: "Failed to save proposal" });
     }
@@ -162,17 +255,20 @@ async function startServer() {
 
   // 4. Generate AI Proposal
   app.post("/api/generate-proposal", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     try {
-      const { gigId, userSkills, userName, userBio, apiKey: bodyApiKey, language } = req.body;
+      const { gigId, userSkills, userName, userBio, language } = req.body;
       const gig = await prisma.gig.findUnique({ where: { id: gigId } });
       if (!gig) {
         return res.status(404).json({ error: "Gig not found" });
       }
 
-      // Allow API key from request body (from Settings) or env
-      const apiKey = bodyApiKey || process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
-        return res.status(400).json({ error: "GEMINI_API_KEY not configured. Add your key in Settings or .env.local" });
+        return res.status(400).json({ error: "GEMINI_API_KEY is not configured on the server." });
       }
 
       const proposal = await generateProposal({
@@ -184,10 +280,10 @@ async function startServer() {
         language: language || "arabic",
       });
 
-      // Save proposal to gig
-      await prisma.gig.update({
-        where: { id: gigId },
-        data: { proposal, status: "APPLIED" },
+      const userGig = await ensureUserGigForUser(req.user.id, gigId);
+      await prisma.userGig.update({
+        where: { id: userGig.id },
+        data: { proposal, status: "PROPOSAL_READY" },
       });
 
       res.json({ proposal });
@@ -199,8 +295,15 @@ async function startServer() {
 
   // 4b. Test API Key
   app.post("/api/test-key", async (req, res) => {
-    const { apiKey } = req.body;
-    if (!apiKey) return res.status(400).json({ error: "No key provided" });
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
+      return res.status(400).json({ error: "GEMINI_API_KEY is not configured on the server." });
+    }
+
     try {
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
@@ -220,9 +323,13 @@ async function startServer() {
 
   // 4c. Delete all gigs
   app.delete("/api/gigs/all", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     try {
-      await prisma.gig.deleteMany({});
-      res.json({ message: "All gigs deleted" });
+      await prisma.userGig.deleteMany({ where: { userId: req.user.id } });
+      res.json({ message: "All user gig state deleted" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete gigs" });
     }
@@ -230,27 +337,20 @@ async function startServer() {
 
   // 5. User Profile (Onboarding)
   app.post("/api/user/skills", async (req, res) => {
-    const { email, name, bio, skills } = req.body;
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { name, bio, skills } = req.body;
     try {
-      const user = await prisma.user.upsert({
-        where: { email },
-        update: {
+      const user = await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
           name,
           bio,
           skills: {
             set: [],
-            connectOrCreate: skills.map((s: string) => ({
-              where: { name: s },
-              create: { name: s },
-            })),
-          },
-        },
-        create: {
-          email,
-          name,
-          bio,
-          skills: {
-            connectOrCreate: skills.map((s: string) => ({
+            connectOrCreate: (skills || []).map((s: string) => ({
               where: { name: s },
               create: { name: s },
             })),
@@ -266,9 +366,17 @@ async function startServer() {
   });
 
   app.get("/api/user/:email", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (req.user.email !== req.params.email) {
+      return res.status(403).json({ error: "You can only access your own profile" });
+    }
+
     try {
       const user = await prisma.user.findUnique({
-        where: { email: req.params.email },
+        where: { id: req.user.id },
         include: { skills: true },
       });
       res.json(user);
@@ -279,11 +387,19 @@ async function startServer() {
 
   // 6. Dashboard Stats
   app.get("/api/stats", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     try {
-      const totalGigs = await prisma.gig.count();
-      const newGigs = await prisma.gig.count({ where: { status: "NEW" } });
-      const appliedGigs = await prisma.gig.count({ where: { status: "APPLIED" } });
-      const archivedGigs = await prisma.gig.count({ where: { status: "ARCHIVED" } });
+      const userGigs = await prisma.userGig.findMany({
+        where: { userId: req.user.id },
+        select: { status: true },
+      });
+      const totalGigs = userGigs.length;
+      const newGigs = userGigs.filter((gig) => gig.status === "NEW").length;
+      const appliedGigs = userGigs.filter((gig) => gig.status === "APPLIED").length;
+      const archivedGigs = userGigs.filter((gig) => gig.status === "ARCHIVED").length;
       const totalUsers = await prisma.user.count();
       res.json({ totalGigs, newGigs, appliedGigs, archivedGigs, totalUsers });
     } catch (error) {

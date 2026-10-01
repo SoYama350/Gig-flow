@@ -19,7 +19,7 @@ interface DashboardProps {
 const statCards = [
   { key: "totalGigs", label: "Total Gigs", icon: Briefcase, color: "from-accent-500 to-accent-700", glow: "glow-accent", trend: null },
   { key: "newGigs", label: "New Gigs", icon: Search, color: "from-cyan-500 to-cyan-700", glow: "glow-cyan", trend: "fresh" },
-  { key: "appliedGigs", label: "Applied", icon: TrendingUp, color: "from-emerald-500 to-emerald-700", glow: "", trend: null },
+  { key: "appliedGigs", label: "Proposal Ready", icon: TrendingUp, color: "from-emerald-500 to-emerald-700", glow: "", trend: null },
   { key: "archivedGigs", label: "Archived", icon: BarChart3, color: "from-slate-500 to-slate-700", glow: "", trend: null },
 ];
 

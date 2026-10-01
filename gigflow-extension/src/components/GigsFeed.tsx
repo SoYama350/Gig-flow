@@ -30,11 +30,12 @@ interface GigsFeedProps {
   userSkills: string[];
 }
 
-const statusFilters = ["ALL", "NEW", "VIEWED", "APPLIED", "ARCHIVED"];
+const statusFilters = ["ALL", "NEW", "VIEWED", "PROPOSAL_READY", "ARCHIVED"];
 const statusStyles: Record<string, string> = {
   NEW: "status-new",
   VIEWED: "status-viewed",
-  APPLIED: "status-applied",
+  PROPOSAL_READY: "status-applied",
+  READY_TO_APPLY: "status-applied",
   ARCHIVED: "status-archived",
 };
 
@@ -238,8 +239,8 @@ export default function GigsFeed({
                 <button onClick={() => bulkStatusChange("VIEWED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
                   <Eye size={11} /> Viewed
                 </button>
-                <button onClick={() => bulkStatusChange("APPLIED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
-                  <CheckCheck size={11} /> Applied
+                <button onClick={() => bulkStatusChange("PROPOSAL_READY")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
+                  <CheckCheck size={11} /> Proposal Ready
                 </button>
                 <button onClick={() => bulkStatusChange("ARCHIVED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer text-rose-400 border-rose-500/20 hover:bg-rose-500/10">
                   <Trash2 size={11} /> Archive
@@ -386,7 +387,7 @@ export default function GigsFeed({
                           >
                             <option value="NEW">NEW</option>
                             <option value="VIEWED">VIEWED</option>
-                            <option value="APPLIED">APPLIED</option>
+                            <option value="PROPOSAL_READY">PROPOSAL_READY</option>
                             <option value="ARCHIVED">ARCHIVED</option>
                           </select>
                           {gig.proposal && (
