@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Key, Clock, Globe, Save, CheckCircle2, RefreshCw, Shield, ChevronRight } from "lucide-react";
+import { Key, Clock, Globe, Save, CheckCircle2, RefreshCw, Shield, ChevronRight, MoonStar, SunMedium } from "lucide-react";
+import { type Theme } from "../theme";
 
 interface SettingsProps {
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   onShowToast: (msg: string, type?: "success" | "error") => void;
   onSettingsSaved?: () => void;
 }
@@ -16,7 +19,7 @@ const SCRAPE_INTERVALS = [
   { label: "Every 6 hours", value: 360 },
 ];
 
-export default function Settings({ onShowToast, onSettingsSaved }: SettingsProps) {
+export default function Settings({ theme, onThemeChange, onShowToast, onSettingsSaved }: SettingsProps) {
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [scrapeInterval, setScrapeInterval] = useState(0);
@@ -86,8 +89,39 @@ export default function Settings({ onShowToast, onSettingsSaved }: SettingsProps
       </div>
 
       <div className="space-y-4">
-        {/* API Key */}
+        {/* Appearance */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+              {theme === "dark" ? <MoonStar size={15} className="text-white" /> : <SunMedium size={15} className="text-white" />}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">Appearance</h2>
+              <p className="text-xs text-slate-500">Switch between dark and light mode</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {(["dark", "light"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onThemeChange(option)}
+                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all cursor-pointer ${
+                  theme === option
+                    ? "border-accent-500/40 bg-accent-500/15 text-accent-400"
+                    : "border-white/5 bg-dark-800 text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {option === "dark" ? "Dark" : "Light"}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-600">Theme preference is saved automatically and applies across the app.</p>
+        </motion.div>
+
+        {/* API Key */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="glass-card rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
               <Key size={15} className="text-white" />

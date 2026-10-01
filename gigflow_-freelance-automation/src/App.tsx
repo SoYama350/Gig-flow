@@ -15,6 +15,7 @@ import {
   GuestRoute,
   EmailVerificationNotice
 } from "./features/auth";
+import { type Theme, applyThemePreference, getInitialTheme } from "./theme";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import GigsFeed from "./components/GigsFeed";
@@ -75,6 +76,7 @@ export default function App() {
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [lastScraped, setLastScraped] = useState<string | null>(loadLastScraped);
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
   const autoScrapeRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Profile state — restored from localStorage
@@ -151,6 +153,11 @@ export default function App() {
   useEffect(() => {
     saveProfile({ email, name, bio, skills });
   }, [email, name, bio, skills]);
+
+  useEffect(() => {
+    applyThemePreference(theme);
+    localStorage.setItem("gigflow_theme", theme);
+  }, [theme]);
 
   const triggerScrape = async (silent = false) => {
     setScraping(true);
@@ -386,7 +393,12 @@ export default function App() {
                       />
                     )}
                     {activeTab === "settings" && (
-                      <Settings onShowToast={showToast} onSettingsSaved={initAutoScrape} />
+                      <Settings
+                        theme={theme}
+                        onThemeChange={setTheme}
+                        onShowToast={showToast}
+                        onSettingsSaved={initAutoScrape}
+                      />
                     )}
                   </motion.div>
                 </AnimatePresence>

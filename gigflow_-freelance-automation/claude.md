@@ -158,6 +158,7 @@ model Gig {
 - [x] **Khamsat Scraper Support** — Created full `KhamsatScraper` engine matching community request posts and automated keyphrase skill tag mapping
 - [x] **Multi-page Scraping Pagination** — Added full pagination support (pages 1 & 2 scraped by default) for a deeper gig database
 - [x] **Native Browser Notifications** — Implemented browser Notification API permissions and system-level alerts triggered when auto-scraping finds new freelance gigs
+- [x] **Dark/light mode toggle** — option to switch between dark and light mode (currently default premium dark)
 
 ---
 
@@ -167,7 +168,7 @@ model Gig {
 *(No active bugs found)*
 
 ### 🚀 Upgrades Planned / Backlog
-1. **Dark/light mode toggle** — option to switch between dark and light mode (currently default premium dark)
+*(No active backlog items)*
 
 ---
 
