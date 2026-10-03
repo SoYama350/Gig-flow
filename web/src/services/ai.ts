@@ -114,21 +114,35 @@ Constraints:
 - maintain a natural business tone
 - in Arabic, use professional Arabic suitable for freelance platforms`;
 
-  let response;
-  try {
-    response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown AI error";
-    if (message.toLowerCase().includes("rate limit") || message.toLowerCase().includes("429")) {
-      throw new Error("AI provider is rate limiting requests. Please try again in a moment.");
+  const candidateModels = [
+    process.env.GEMINI_MODEL,
+    "gemini-3.8-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+  ].filter(Boolean) as string[];
+
+  let response: any;
+  let lastError: any = null;
+
+  for (const model of candidateModels) {
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+      });
+      if (response?.text) break;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : "Unknown AI error";
+      if (message.toLowerCase().includes("rate limit") || message.toLowerCase().includes("429")) {
+        throw new Error("AI provider is rate limiting requests. Please try again in a moment.");
+      }
     }
-    if (message.toLowerCase().includes("timeout") || message.toLowerCase().includes("timed out")) {
-      throw new Error("AI request timed out. Please retry.");
-    }
-    throw new Error("AI request failed. Please try again.");
+  }
+
+  if (!response) {
+    throw lastError instanceof Error ? lastError : new Error("AI request failed. Please try again.");
   }
 
   const rawText = extractTextFromResponse(response);

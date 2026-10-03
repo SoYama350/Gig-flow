@@ -25,21 +25,26 @@ export default function GigsPage() {
     setScraping(true);
     showToast("Scraping Mostaql…");
     try {
-      const res = await fetch("/api/scrape", { method: "POST" });
+      const res = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform: "mostaql", skills: userSkills }),
+      });
       if (res.ok) {
         const d = await res.json();
-        showToast(`Scrape done — ${d?.count ?? 0} gigs added`);
+        showToast(`Scrape done — ${d?.processed ?? d?.count ?? 0} gigs added`);
         const fresh = await fetch("/api/gigs");
         if (fresh.ok) setGigs(await fresh.json());
       } else {
-        showToast("Scraper unavailable (demo mode)", "error");
+        const err = await res.json().catch(() => null);
+        showToast(err?.error || err?.message || "Scraping failed", "error");
       }
-    } catch {
-      showToast("Scraper unavailable (demo mode)", "error");
+    } catch (e: any) {
+      showToast(e?.message || "Scraping failed", "error");
     } finally {
       setScraping(false);
     }
-  }, [showToast]);
+  }, [showToast, userSkills]);
 
   const onStatusChange = useCallback(async (id: string, status: string) => {
     setGigs((prev) => prev.map((g) => (g.id === id ? { ...g, status } : g)));
@@ -60,7 +65,7 @@ export default function GigsPage() {
         const res = await fetch("/api/generate-proposal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gigId, language }),
+          body: JSON.stringify({ gigId, language, userSkills }),
         });
         if (res.ok) {
           const d = await res.json();
@@ -69,15 +74,16 @@ export default function GigsPage() {
           );
           showToast("Proposal generated ✓");
         } else {
-          showToast("Proposal AI unavailable (demo mode)", "error");
+          const err = await res.json().catch(() => null);
+          showToast(err?.error || err?.message || "Proposal generation failed", "error");
         }
-      } catch {
-        showToast("Proposal AI unavailable (demo mode)", "error");
+      } catch (e: any) {
+        showToast(e?.message || "Proposal generation failed", "error");
       } finally {
         setGeneratingFor(null);
       }
     },
-    [showToast]
+    [showToast, userSkills]
   );
 
   const onSaveProposal = useCallback(

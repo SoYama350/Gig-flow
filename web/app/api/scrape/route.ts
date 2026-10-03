@@ -4,7 +4,12 @@ import { MostaqlScraper, KhamsatScraper } from "@/src/services/scraper";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body: Record<string, any> = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
     const platform = body.platform;
     const pages = 2;
     let gigs: Awaited<ReturnType<typeof MostaqlScraper.fetchLatestGigs>> = [];
@@ -61,6 +66,7 @@ export async function POST(req: NextRequest) {
       message: "Scraping completed",
       total: gigs.length,
       processed: newCount,
+      count: newCount,
     });
   } catch (error) {
     console.error("[SCRAPER] Failed:", error);

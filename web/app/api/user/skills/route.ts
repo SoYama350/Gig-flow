@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 export async function POST(req: NextRequest) {
   const { email, name, bio, skills } = await req.json();
 
+  const skillArray: string[] = Array.isArray(skills)
+    ? skills
+    : typeof skills === "string"
+    ? skills.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
   try {
     const user = await prisma.user.upsert({
       where: { email },
@@ -12,7 +18,7 @@ export async function POST(req: NextRequest) {
         bio,
         skills: {
           set: [],
-          connectOrCreate: (skills as string[]).map((s) => ({
+          connectOrCreate: skillArray.map((s) => ({
             where: { name: s },
             create: { name: s },
           })),
@@ -23,7 +29,7 @@ export async function POST(req: NextRequest) {
         name,
         bio,
         skills: {
-          connectOrCreate: (skills as string[]).map((s) => ({
+          connectOrCreate: skillArray.map((s) => ({
             where: { name: s },
             create: { name: s },
           })),

@@ -32,21 +32,33 @@ export default function DashboardPage() {
     setScraping(true);
     showToast("Scraping Mostaql…");
     try {
-      const res = await fetch("/api/scrape", { method: "POST" });
+      const res = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform: "mostaql" }),
+      });
       if (res.ok) {
         const d = await res.json();
-        setStats(d?.stats ?? stats);
+        const freshStats = await fetch("/api/stats")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (freshStats && typeof freshStats.totalGigs === "number") {
+          setStats(freshStats);
+        } else if (d?.stats) {
+          setStats(d.stats);
+        }
         setLastScraped(new Date().toISOString());
-        showToast(`Scrape done — ${d?.count ?? 0} gigs added`);
+        showToast(`Scrape done — ${d?.processed ?? d?.count ?? 0} gigs added`);
       } else {
-        showToast("Scraper unavailable (demo mode)", "error");
+        const err = await res.json().catch(() => null);
+        showToast(err?.error || err?.message || "Scraping failed", "error");
       }
-    } catch {
-      showToast("Scraper unavailable (demo mode)", "error");
+    } catch (e: any) {
+      showToast(e?.message || "Scraping failed", "error");
     } finally {
       setScraping(false);
     }
-  }, [showToast, stats]);
+  }, [showToast]);
 
   return (
     <>
