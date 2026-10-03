@@ -15,7 +15,7 @@ import {
 export async function mapApiError(response: Response): Promise<AppError> {
   try {
     const body = await response.json();
-    const message = body?.message || response.statusText || 'Request failed';
+    const message = body?.message || body?.error || response.statusText || 'Request failed';
 
     switch (response.status) {
       case 400:

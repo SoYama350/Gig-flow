@@ -290,6 +290,7 @@ export default function App() {
         userName: name,
         userBio: bio,
         language,
+        apiKey: settingsApiKey || undefined,
       }));
       setGigs((prev) => prev.map((g) => (g.id === gigId ? { ...g, proposal: data.proposal, status: "PROPOSAL_READY" } : g)));
       fetchStats();

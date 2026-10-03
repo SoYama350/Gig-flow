@@ -132,13 +132,19 @@ async function runScrape(
 // ── API Key Test ──────────────────────────────────────────
 
 async function testApiKey(apiKey: string): Promise<boolean> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'Say: OK' }] }] }),
-    }
-  );
-  return res.ok;
+  const models = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+  for (const model of models) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'Say: OK' }] }] }),
+        }
+      );
+      if (res.ok) return true;
+    } catch {}
+  }
+  return false;
 }

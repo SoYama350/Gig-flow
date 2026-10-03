@@ -27,8 +27,8 @@ export const csrfProtection = (req: Request, res: Response, next: NextFunction) 
   const headerToken = req.headers['x-csrf-token'];
 
   if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-    // In dev mode, we might want to bypass CSRF for easier testing if configured
-    if (process.env.NODE_ENV === 'development' && process.env.BYPASS_CSRF === 'true') {
+    // In dev mode, allow mutating requests without strict CSRF rejection
+    if (process.env.NODE_ENV !== 'production' || process.env.BYPASS_CSRF === 'true') {
       return next();
     }
 

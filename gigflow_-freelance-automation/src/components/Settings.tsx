@@ -30,14 +30,17 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
   useEffect(() => {
     const stored = localStorage.getItem("gigflow_settings");
     if (stored) {
-      const s = JSON.parse(stored);
-      setScrapeInterval(s.scrapeInterval || 0);
-      setPlatform(s.platform || "mostaql");
+      try {
+        const s = JSON.parse(stored);
+        setApiKey(s.apiKey || "");
+        setScrapeInterval(s.scrapeInterval || 0);
+        setPlatform(s.platform || "mostaql");
+      } catch {}
     }
   }, []);
 
   const handleSave = () => {
-    const settings = { scrapeInterval, platform };
+    const settings = { apiKey: apiKey.trim(), scrapeInterval, platform };
     localStorage.setItem("gigflow_settings", JSON.stringify(settings));
     setSaved(true);
     onShowToast("Settings saved!");
@@ -46,12 +49,12 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
   };
 
   const handleTestKey = async () => {
-    onShowToast("Testing server-side Gemini key...");
+    onShowToast("Testing Gemini key...");
     try {
-      await httpClient.post("/api/test-key");
-      onShowToast("Server Gemini key is valid ✓");
+      await httpClient.post("/api/test-key", { apiKey: apiKey.trim() });
+      onShowToast("Gemini key is valid ✓");
     } catch (error: any) {
-      onShowToast(error?.message || "Server Gemini key is invalid or has no quota", "error");
+      onShowToast(error?.message || "Gemini key is invalid or has no quota", "error");
     }
   };
 
@@ -121,9 +124,8 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Server-side key configured in .env.local"
+                placeholder="AIzaSy..."
                 className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors font-mono"
-                readOnly
               />
               <button
                 type="button"
@@ -138,7 +140,7 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
             </button>
           </div>
           <p className="text-xs text-slate-600">
-            Store the Gemini key in the server environment, not in the browser. Set GEMINI_API_KEY in your .env.local file and restart the app.
+            Paste your Google Gemini API key here and click Save Settings, or configure GEMINI_API_KEY in .env.local.
           </p>
         </motion.div>
 

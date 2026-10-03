@@ -56,15 +56,32 @@ ${isArabic ? "11. Use professional Arabic business language suitable for Mostaql
 
 Write ONLY the proposal text, no headers or meta-commentary.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
-    contents: prompt,
-  });
+  const candidateModels = [
+    process.env.GEMINI_MODEL,
+    "gemini-3.8-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+  ].filter(Boolean) as string[];
 
-  const text = response.text;
-  if (!text) {
-    throw new Error("AI returned empty response");
+  let lastError: any = null;
+
+  for (const model of candidateModels) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+      });
+
+      const text = response.text;
+      if (text) {
+        return text;
+      }
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`[AI] Model ${model} failed, trying fallback:`, error?.message || error);
+    }
   }
 
-  return text;
+  throw lastError || new Error("AI returned empty response");
 }

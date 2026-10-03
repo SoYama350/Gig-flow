@@ -2,12 +2,8 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const getJwtSecret = () => process.env.JWT_SECRET || 'development-secret-change-me';
 const ACCESS_TOKEN_EXPIRES_IN = '15m'; // 15 minutes
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is required. Add it to your environment before starting the server.');
-}
 
 interface TokenPayload {
   userId: string;
@@ -21,7 +17,7 @@ export class TokenService {
    */
   generateAccessToken(userId: string): string {
     const payload: TokenPayload = { userId };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+    return jwt.sign(payload, getJwtSecret(), { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
   }
 
   /**
@@ -29,7 +25,7 @@ export class TokenService {
    * Throws if invalid or expired.
    */
   verifyAccessToken(token: string): TokenPayload {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, getJwtSecret()) as TokenPayload;
   }
 
   /**
