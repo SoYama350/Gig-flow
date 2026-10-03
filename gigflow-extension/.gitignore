@@ -1,8 +1,0 @@
-node_modules/
-.env
-.DS_Store
-.vscode/
-*.log
-dist/
-dist/cache/
-/.idea/

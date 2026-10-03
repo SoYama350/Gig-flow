@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  username          String?  @unique
+  firstName         String?
+  lastName          String?
+  name              String?  // Kept for backward compatibility/OAuth
+  bio               String?
+  passwordHash      String?  // null for OAuth-only users
+  isEmailVerified   Boolean  @default(false)
+  termsAccepted     Boolean  @default(false)
+  marketingEmails   Boolean  @default(false)
+  verificationToken String?  @unique
+  verificationExpiry DateTime?
+  resetToken        String?  @unique
+  resetTokenExpiry  DateTime?
+
+  // OAuth
+  googleId          String?  @unique
+
+  skills            Skill[]
+  refreshTokens     RefreshToken[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Skill {
+  id    String @id @default(uuid())
+  name  String @unique
+  users User[]
+}
+
+model Gig {
+  id             String   @id @default(uuid())
+  title          String
+  description    String
+  budget         String?
+  platform       String   @default("Mostaql")
+  url            String   @unique
+  requiredSkills String?
+  scrapedAt      DateTime @default(now())
+  matchScore     Float?
+  status         String   @default("NEW")
+  proposal       String?
+}

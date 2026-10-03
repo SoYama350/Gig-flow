@@ -1,105 +1,56 @@
-# GigFlow
+# GigFlow Monorepo
 
-GigFlow is a freelance automation platform for discovering gigs, tracking opportunities, and generating AI-powered proposals. The repository contains both the full web app and a Chrome extension version of the workflow.
+This repository contains two related projects that live together in one monorepo:
 
-## Overview
+- `web/` � the local full-stack freelance automation web app
+- `extension/` � the browser extension version of GigFlow
 
-GigFlow helps freelancers:
+## Projects
 
-- Scrape freelance opportunities from Mostaql and Khamsat
-- Review and organize gigs by status
-- Match opportunities against their profile skills
-- Generate Arabic or English AI proposals
-- Track performance with analytics and KPIs
-- Use a browser extension to keep the workflow close to the job boards
+### Web app (`web/`)
+The web app is the local full-stack project that includes:
 
-## Repository structure
+- React + Vite frontend
+- Express backend server
+- Prisma + SQLite database
+- AI proposal generation using Gemini
+- scraping and gig management flows
 
-- `gigflow_-freelance-automation/` — full-stack React + Express + Prisma app
-- `gigflow-extension/` — Chrome/Edge extension build
-- `playground/` — exploration and accessibility demo area
-- `docs/screenshots/` — README screenshots
-
-## Demo account
-
-Use the demo login to explore the app without setting up a local account:
-
-- Email: `demo@gigflow.local`
-- Password: `GigFlowDemo2026!`
-
-## Screenshots
-
-### Login
-
-![GigFlow login screen](docs/screenshots/login.png)
-
-### Dashboard
-
-![GigFlow dashboard and gig management](docs/screenshots/dashboard.png)
-
-## Features
-
-### Automation app
-
-- AI proposal generation with Gemini
-- Gig status tracking: NEW, VIEWED, APPLIED, ARCHIVED
-- Skill-based match scoring
-- Scraper support for Mostaql and Khamsat
-- Analytics dashboard with performance metrics
-- Theme switching between dark and light mode
-- Profile and settings persistence
-
-### Browser extension
-
-- Side panel interface for quick gig review
-- Quick access to the same gig handling flow
-- Local storage and extension-aware actions
-
-## Quick start
-
-### 1) Web app
+Run it from `web/`:
 
 ```bash
-cd gigflow_-freelance-automation
+cd web
 npm install
+npm run build
 npm run dev
 ```
 
-Open http://localhost:3000
+Required env vars for the web app:
 
-### 2) Extension
+- `GEMINI_API_KEY`
+- optionally `APP_URL`
+
+Keep `.env.local` local and do not commit secrets.
+
+### Extension (`extension/`)
+The extension project is the remote GitHub repo content preserved separately.
+
+Run it from `extension/`:
 
 ```bash
-cd gigflow-extension
+cd extension
 npm install
 npm run build
 ```
 
-Then load the generated `dist/` folder in Chrome using the Extensions Developer Mode.
+The extension build outputs to `dist/` and is loaded in Chrome/Edge via `chrome://extensions/` using "Load unpacked".
 
-## Environment
+## Root rules
 
-The automation app expects a Gemini API key in `.env.local`:
-
-```env
-GEMINI_API_KEY=your_key_here
-```
-
-## Tech stack
-
-- React 19
-- TypeScript
-- Vite
-- Express
-- Prisma + SQLite
-- Tailwind CSS
-- Gemini AI
-- Chrome extension tooling
-
-## GitHub
-
-Repository: https://github.com/SoYama350/Gig-flow.git
+- Do not commit `.env.local`, `.env`, `node_modules/`, `dist/`, or local database files.
+- Keep each project isolated with its own `package.json` and dependencies.
+- Preserve the original remote Git history and do not force-push.
 
 ## License
 
-This project is provided as a portfolio/demo project for freelance workflow automation.
+The original repository license is preserved at the root.

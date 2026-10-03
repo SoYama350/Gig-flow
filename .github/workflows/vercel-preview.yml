@@ -1,0 +1,64 @@
+name: Vercel Preview Deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  deployments: write
+  pull-requests: write
+
+jobs:
+  deploy-preview:
+    name: Deploy preview to Vercel
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Build prebuilt output
+        run: vercel build --prod --yes --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy preview
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --yes --token "$VERCEL_TOKEN")
+          echo "preview-url=$url" >> "$GITHUB_OUTPUT"
+          echo "Preview URL: $url"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Comment PR with preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.deploy.outputs.preview-url }}';
+            const body = `Vercel preview deployed (FlyRank FE-04 capstone)\n\nLive URL: ${url}\n\n_This preview was created by an AI agent (OpenHands) on behalf of ${{ github.actor }}._`;
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body
+            });
