@@ -28,6 +28,7 @@ import Settings from "./components/Settings";
 import Analytics from "./components/Analytics";
 import Playground from "../playground/Playground";
 import AgentWorkspace from "./components/AgentWorkspace";
+import { Language, getInitialLanguage, setLanguagePreference } from "./i18n";
 
 interface Gig {
   id: string;
@@ -119,7 +120,17 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [lastScraped, setLastScraped] = useState<string | null>(loadLastScraped);
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
+  const [language, setLanguage] = useState<Language>(() => getInitialLanguage());
   const autoScrapeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setLanguagePreference(language);
+  }, [language]);
+
+  const handleLanguageChange = (newLang: Language) => {
+    setLanguage(newLang);
+    setLanguagePreference(newLang);
+  };
 
   // Profile state — restored from localStorage
   const savedProfile = loadProfile();
@@ -372,7 +383,12 @@ export default function App() {
           <ProtectedRoute>
             <div className="flex h-screen w-full overflow-hidden font-sans">
               <div className="mesh-gradient" />
-              <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+              <Sidebar
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                language={language}
+                onLanguageChange={handleLanguageChange}
+              />
 
               <main className="flex-1 overflow-auto min-w-0">
                 <AnimatePresence mode="wait">
@@ -396,6 +412,7 @@ export default function App() {
                       <AgentWorkspace
                         onShowToast={showToast}
                         userSkills={userSkillsList}
+                        language={language}
                       />
                     )}
                     {activeTab === "gigs" && (

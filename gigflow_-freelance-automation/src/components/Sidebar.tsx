@@ -1,26 +1,48 @@
 import { useState, useEffect } from "react";
-import { Search, Briefcase, User, BarChart3, Zap, Settings, LineChart, Moon, Sun, LogOut, Bot } from "lucide-react";
+import {
+  Search,
+  User,
+  BarChart3,
+  Zap,
+  Settings,
+  LineChart,
+  Moon,
+  Sun,
+  LogOut,
+  Bot,
+  Languages,
+} from "lucide-react";
 import { useLogout } from "../features/auth";
+import { translations, Language } from "../i18n";
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   userName?: string;
+  language: Language;
+  onLanguageChange: (lang: Language) => void;
 }
 
-const tabs = [
-  { id: "dashboard", icon: BarChart3, label: "Dashboard" },
-  { id: "agent", icon: Bot, label: "Agent Workspace" },
-  { id: "gigs", icon: Search, label: "Gigs Feed" },
-  { id: "analytics", icon: LineChart, label: "Analytics" },
-  { id: "profile", icon: User, label: "Profile" },
-  { id: "settings", icon: Settings, label: "Settings" },
-];
-
-export default function Sidebar({ activeTab, onTabChange, userName }: SidebarProps) {
+export default function Sidebar({
+  activeTab,
+  onTabChange,
+  userName,
+  language,
+  onLanguageChange,
+}: SidebarProps) {
   const initial = userName ? userName[0].toUpperCase() : "GF";
   const [isLightMode, setIsLightMode] = useState(false);
   const { logout } = useLogout();
+  const t = translations[language] || translations.ar;
+
+  const tabs = [
+    { id: "dashboard", icon: BarChart3, label: t.dashboard },
+    { id: "agent", icon: Bot, label: t.agentWorkspace },
+    { id: "gigs", icon: Search, label: t.gigsFeed },
+    { id: "analytics", icon: LineChart, label: t.analytics },
+    { id: "profile", icon: User, label: t.profile },
+    { id: "settings", icon: Settings, label: t.settings },
+  ];
 
   useEffect(() => {
     if (localStorage.getItem("theme") === "light") {
@@ -40,14 +62,18 @@ export default function Sidebar({ activeTab, onTabChange, userName }: SidebarPro
     setIsLightMode(!isLightMode);
   };
 
+  const toggleLanguage = () => {
+    onLanguageChange(language === "ar" ? "en" : "ar");
+  };
+
   return (
     <>
       {/* ── Desktop sidebar ──────────────────────────────── */}
-      <aside className="hidden md:flex w-[72px] bg-dark-900 flex-col items-center py-6 border-r border-white/5 shrink-0">
+      <aside className="hidden md:flex w-[72px] bg-dark-900 flex-col items-center py-6 border-r border-white/5 shrink-0 z-30">
         {/* Logo */}
         <button
           onClick={() => onTabChange("dashboard")}
-          className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-cyan-500 flex items-center justify-center mb-10 glow-accent cursor-pointer hover:scale-105 transition-transform"
+          className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-cyan-500 flex items-center justify-center mb-8 glow-accent cursor-pointer hover:scale-105 transition-transform"
         >
           <Zap size={20} className="text-white" />
         </button>
@@ -70,11 +96,20 @@ export default function Sidebar({ activeTab, onTabChange, userName }: SidebarPro
         </nav>
 
         <div className="flex flex-col gap-2 mt-auto mb-2">
+          {/* Language Switcher */}
+          <button
+            onClick={toggleLanguage}
+            className="tooltip-wrapper w-11 h-11 rounded-xl flex items-center justify-center text-accent-400 hover:text-accent-300 hover:bg-accent-500/10 transition-all duration-200 cursor-pointer text-xs font-bold font-mono"
+            data-tooltip={t.switchLanguage}
+          >
+            {language === "ar" ? "EN" : "ع"}
+          </button>
+
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             className="tooltip-wrapper w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-all duration-200 cursor-pointer"
-            data-tooltip={isLightMode ? "Dark Mode" : "Light Mode"}
+            data-tooltip={isLightMode ? t.darkMode : t.lightMode}
           >
             {isLightMode ? <Moon size={18} /> : <Sun size={18} />}
           </button>
@@ -83,7 +118,7 @@ export default function Sidebar({ activeTab, onTabChange, userName }: SidebarPro
           <button
             onClick={() => logout()}
             className="tooltip-wrapper w-11 h-11 rounded-xl flex items-center justify-center text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-200 cursor-pointer"
-            data-tooltip="Logout"
+            data-tooltip={t.logout}
           >
             <LogOut size={18} />
           </button>
@@ -104,16 +139,23 @@ export default function Sidebar({ activeTab, onTabChange, userName }: SidebarPro
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+            className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${
               activeTab === tab.id
                 ? "text-accent-400"
                 : "text-slate-600 hover:text-slate-400"
             }`}
           >
-            <tab.icon size={20} />
-            <span className="text-[9px] font-medium tracking-wide">{tab.label.split(" ")[0]}</span>
+            <tab.icon size={18} />
+            <span className="text-[9px] font-medium tracking-wide truncate max-w-[50px]">{tab.label}</span>
           </button>
         ))}
+        <button
+          onClick={toggleLanguage}
+          className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl text-accent-400 font-bold text-xs"
+        >
+          {language === "ar" ? "EN" : "ع"}
+          <span className="text-[9px] font-medium">{language === "ar" ? "En" : "عربي"}</span>
+        </button>
       </nav>
     </>
   );

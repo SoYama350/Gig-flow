@@ -20,8 +20,9 @@ export function createAgentRouter(prisma: PrismaClient) {
     const user = await getActiveUser(req);
     if (!user) return res.status(401).json({ error: "Authentication required" });
 
-    const { instruction, apiKey } = req.body;
-    if (!instruction || typeof instruction !== "string") {
+    const instruction = req.body.instruction || req.body.command;
+    const apiKey = req.body.apiKey;
+    if (!instruction || typeof instruction !== "string" || !instruction.trim()) {
       return res.status(400).json({ error: "Instruction is required" });
     }
 
@@ -29,7 +30,7 @@ export function createAgentRouter(prisma: PrismaClient) {
       const run = await prisma.agentRun.create({
         data: {
           userId: user.id,
-          instruction,
+          instruction: instruction.trim(),
           status: "DRAFT",
         },
       });
@@ -271,7 +272,8 @@ export function createAgentRouter(prisma: PrismaClient) {
     const user = await getActiveUser(req);
     if (!user) return res.status(401).json({ error: "Authentication required" });
 
-    const { name, type, extractedText } = req.body;
+    const { name, type } = req.body;
+    const extractedText = req.body.extractedText || req.body.content;
     if (!name || !extractedText) {
       return res.status(400).json({ error: "Name and content are required" });
     }

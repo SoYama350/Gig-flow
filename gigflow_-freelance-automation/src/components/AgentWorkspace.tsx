@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Bot,
   Sparkles,
@@ -7,18 +7,17 @@ import {
   Clock,
   AlertTriangle,
   Send,
-  Eye,
   FileText,
   ThumbsUp,
   XCircle,
   RefreshCw,
   ExternalLink,
-  Sliders,
   ShieldCheck,
-  ChevronRight,
   Database,
-  Check,
+  UploadCloud,
+  FileCheck,
 } from "lucide-react";
+import { translations, Language } from "../i18n";
 
 interface AgentTask {
   id: string;
@@ -43,15 +42,11 @@ interface AgentTask {
 
 interface AgentRun {
   id: string;
-  command: string;
+  instruction: string;
+  command?: string;
   status: string;
   createdAt: string;
   tasks: AgentTask[];
-  stats?: {
-    totalTasks: number;
-    approved: number;
-    rejected: number;
-  };
 }
 
 interface SourceHealth {
@@ -61,7 +56,6 @@ interface SourceHealth {
   isHealthy: boolean;
   latencyMs?: number;
   failureCount: number;
-  lastCheckedAt?: string;
 }
 
 interface UserDoc {
@@ -74,10 +68,15 @@ interface UserDoc {
 export default function AgentWorkspace({
   onShowToast,
   userSkills,
+  language = "ar",
 }: {
   onShowToast: (msg: string, type?: "success" | "error") => void;
   userSkills?: string[];
+  language?: Language;
 }) {
+  const t = translations[language] || translations.ar;
+  const isRtl = language === "ar";
+
   const [command, setCommand] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [runs, setRuns] = useState<AgentRun[]>([]);
@@ -90,6 +89,8 @@ export default function AgentWorkspace({
   const [newDocContent, setNewDocContent] = useState("");
   const [isAddingDoc, setIsAddingDoc] = useState(false);
   const [filterStage, setFilterStage] = useState<string>("ALL");
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchRuns = async () => {
     try {
@@ -113,7 +114,8 @@ export default function AgentWorkspace({
         const data = await res.json();
         setCurrentRun(data);
         if (data.tasks?.length > 0) {
-          const firstPending = data.tasks.find((t: AgentTask) => t.status === "PENDING_REVIEW") || data.tasks[0];
+          const firstPending =
+            data.tasks.find((t: AgentTask) => t.status === "PENDING_REVIEW") || data.tasks[0];
           setSelectedTask(firstPending);
           setProposalEdit(firstPending.proposalDraft || "");
         } else {
@@ -159,17 +161,25 @@ export default function AgentWorkspace({
   const handleStartRun = async () => {
     if (!command.trim()) return;
     setSubmitting(true);
-    onShowToast("Agent initialized: Planning & Collecting…");
+    onShowToast(t.agentInitToast);
     try {
+      const storedKey = typeof localStorage !== "undefined"
+        ? (JSON.parse(localStorage.getItem("gigflow_settings") || "{}")?.apiKey || "")
+        : "";
+
       const res = await fetch("/api/agent-runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command }),
+        body: JSON.stringify({
+          instruction: command.trim(),
+          command: command.trim(),
+          apiKey: storedKey,
+        }),
       });
       if (res.ok) {
         const newRun = await res.json();
         setCommand("");
-        onShowToast(`Agent Run completed with ${newRun.tasks?.length || 0} evaluated opportunities!`);
+        onShowToast(t.agentDoneToast);
         fetchRuns();
         fetchRunDetails(newRun.id);
       } else {
@@ -190,16 +200,18 @@ export default function AgentWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
+          proposalStatus: status,
+          proposal: draft !== undefined ? draft : proposalEdit,
           proposalDraft: draft !== undefined ? draft : proposalEdit,
         }),
       });
       if (res.ok) {
-        onShowToast(`Task ${status.toLowerCase()} successfully`);
+        onShowToast(status === "APPROVED" ? t.taskApproved : t.taskRejected);
         if (currentRun) {
           fetchRunDetails(currentRun.id);
         }
       }
-    } catch (err: any) {
+    } catch {
       onShowToast("Failed to update task", "error");
     }
   };
@@ -211,13 +223,14 @@ export default function AgentWorkspace({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newDocName,
+          name: newDocName.trim(),
           type: "PROPOSAL_GUIDE",
-          content: newDocContent,
+          content: newDocContent.trim(),
+          extractedText: newDocContent.trim(),
         }),
       });
       if (res.ok) {
-        onShowToast("Guide saved to Knowledge Base");
+        onShowToast(t.guideSaved);
         setNewDocName("");
         setNewDocContent("");
         setIsAddingDoc(false);
@@ -228,6 +241,51 @@ export default function AgentWorkspace({
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingFile(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) throw new Error("Empty file content");
+
+        const res = await fetch("/api/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: file.name,
+            type: "UPLOADED_GUIDE",
+            content: text,
+            extractedText: text,
+          }),
+        });
+
+        if (res.ok) {
+          onShowToast(`${t.fileUploadedSuccess}: ${file.name}`);
+          fetchDocs();
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        } else {
+          const err = await res.json();
+          onShowToast(err.error || "Failed to upload document", "error");
+        }
+      } catch (err: any) {
+        onShowToast(err.message || "Failed to parse file", "error");
+      } finally {
+        setIsUploadingFile(false);
+      }
+    };
+
+    reader.onerror = () => {
+      onShowToast("Could not read local file", "error");
+      setIsUploadingFile(false);
+    };
+
+    reader.readAsText(file);
+  };
+
   const handleToggleSource = async (key: string, currentEnabled: boolean) => {
     try {
       const res = await fetch(`/api/sources/${key}/toggle`, {
@@ -236,7 +294,7 @@ export default function AgentWorkspace({
         body: JSON.stringify({ enabled: !currentEnabled }),
       });
       if (res.ok) {
-        onShowToast(`Source ${key} toggled`);
+        onShowToast(t.sourceToggled);
         fetchSources();
       }
     } catch {
@@ -244,30 +302,31 @@ export default function AgentWorkspace({
     }
   };
 
-  const filteredTasks = currentRun?.tasks.filter((t) => {
-    if (filterStage === "ALL") return true;
-    if (filterStage === "PENDING") return t.status === "PENDING_REVIEW";
-    if (filterStage === "APPROVED") return t.status === "APPROVED";
-    if (filterStage === "REJECTED") return t.status === "REJECTED";
-    return true;
-  }) || [];
+  const filteredTasks =
+    currentRun?.tasks.filter((task) => {
+      if (filterStage === "ALL") return true;
+      if (filterStage === "PENDING") return task.status === "PENDING_REVIEW";
+      if (filterStage === "APPROVED") return task.status === "APPROVED";
+      if (filterStage === "REJECTED") return task.status === "REJECTED";
+      return true;
+    }) || [];
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isRtl ? "text-right" : "text-left"}`}>
       {/* ── Top Header & Command Intake Bar ────────────────── */}
       <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-dark-900 via-dark-850 to-accent-950/20 p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-500/10 text-accent-400 border border-accent-500/20 text-xs font-semibold mb-2">
               <Sparkles size={13} />
-              Autonomous Freelance Discovery & Grounding
+              {t.agentBadge}
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
               <Bot className="text-accent-400" size={28} />
-              Agent Workspace
+              {t.agentTitle}
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Issue high-level natural language instructions. The agent plans, fetches across isolated adapters, scores against your verified profile, and generates grounded proposals for your approval.
+            <p className="text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
+              {t.agentSubtitle}
             </p>
           </div>
         </div>
@@ -280,25 +339,30 @@ export default function AgentWorkspace({
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !submitting && handleStartRun()}
-              placeholder="e.g., 'Find 5 React and TypeScript web gigs on Mostaql with high budgets'..."
-              className="w-full pl-11 pr-4 py-3 rounded-xl bg-dark-800/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-all"
+              placeholder={t.commandPlaceholder}
+              className={`w-full py-3.5 rounded-xl bg-dark-800/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-all ${
+                isRtl ? "pr-11 pl-4" : "pl-11 pr-4"
+              }`}
             />
-            <Search className="absolute left-3.5 top-3.5 text-slate-400" size={18} />
+            <Search
+              className={`absolute top-4 text-slate-400 ${isRtl ? "right-3.5" : "left-3.5"}`}
+              size={18}
+            />
           </div>
           <button
             onClick={handleStartRun}
             disabled={submitting || !command.trim()}
-            className="px-6 py-3 rounded-xl bg-accent-600 hover:bg-accent-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-accent-600/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            className="px-6 py-3.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-accent-600/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
           >
             {submitting ? (
               <>
                 <RefreshCw size={16} className="animate-spin" />
-                Orchestrating...
+                {t.orchestrating}
               </>
             ) : (
               <>
-                <Send size={16} />
-                Execute Instruction
+                <Send size={16} className={isRtl ? "rotate-180" : ""} />
+                {t.executeInstruction}
               </>
             )}
           </button>
@@ -306,14 +370,10 @@ export default function AgentWorkspace({
 
         {/* Preset Prompt Suggestions */}
         <div className="flex flex-wrap items-center gap-2 mt-4 text-xs text-slate-400">
-          <span className="text-slate-500">Quick intents:</span>
-          {[
-            "Find 5 Frontend React gigs on Mostaql",
-            "Collect Fullstack Node.js projects from all sources",
-            "Look for Remote React or Python jobs with good fit",
-          ].map((preset) => (
+          <span className="text-slate-500 font-medium">{t.quickIntents}</span>
+          {[t.intent1, t.intent2, t.intent3].map((preset, i) => (
             <button
-              key={preset}
+              key={i}
               onClick={() => setCommand(preset)}
               className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5 transition-colors cursor-pointer"
             >
@@ -325,27 +385,27 @@ export default function AgentWorkspace({
 
       {/* ── Main Workspace Body ────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Runs History & Knowledge/Sources (4 Cols) */}
+        {/* Column 1: Runs History & Knowledge / Sources (4 Cols) */}
         <div className="lg:col-span-4 space-y-6">
           {/* Agent Runs History */}
           <div className="rounded-2xl border border-white/8 bg-dark-900/60 p-5 backdrop-blur-sm">
-            <h3 className="text-sm font-semibold text-white flex items-center justify-between mb-3">
-              <span className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <Clock size={16} className="text-accent-400" />
-                Run History
-              </span>
+                {t.runHistory}
+              </h3>
               <button
                 onClick={fetchRuns}
                 className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
               >
-                Refresh
+                {t.refresh}
               </button>
-            </h3>
+            </div>
 
-            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
               {runs.length === 0 ? (
                 <div className="text-xs text-slate-500 py-4 text-center">
-                  No previous runs. Enter an instruction above to trigger the agent.
+                  {t.noRuns}
                 </div>
               ) : (
                 runs.map((r) => (
@@ -362,10 +422,10 @@ export default function AgentWorkspace({
                     }`}
                   >
                     <div className="font-medium truncate mb-1 text-slate-200">
-                      "{r.command}"
+                      "{r.instruction || r.command}"
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span>{new Date(r.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-slate-400 font-mono">
                         {r.status}
                       </span>
@@ -378,15 +438,15 @@ export default function AgentWorkspace({
 
           {/* Sources Control Panel */}
           <div className="rounded-2xl border border-white/8 bg-dark-900/60 p-5 backdrop-blur-sm">
-            <h3 className="text-sm font-semibold text-white flex items-center justify-between mb-3">
-              <span className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <Database size={16} className="text-emerald-400" />
-                Source Adapters
-              </span>
+                {t.sourceAdapters}
+              </h3>
               <button onClick={fetchSources} className="text-xs text-slate-400 hover:text-slate-200">
-                Check
+                {t.check}
               </button>
-            </h3>
+            </div>
             <div className="space-y-2">
               {sources.map((s) => (
                 <div
@@ -395,11 +455,15 @@ export default function AgentWorkspace({
                 >
                   <div>
                     <div className="font-medium text-slate-200 flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${s.isHealthy ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-rose-400'}`} />
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          s.isHealthy ? "bg-emerald-400 shadow-sm shadow-emerald-400/50" : "bg-rose-400"
+                        }`}
+                      />
                       {s.name}
                     </div>
                     <div className="text-[10px] text-slate-500 mt-0.5">
-                      {s.latencyMs ? `${s.latencyMs}ms latency` : "Ready"} • failures: {s.failureCount}
+                      {s.latencyMs ? `${s.latencyMs}ms ${t.latency}` : t.ready} • {t.failures}: {s.failureCount}
                     </div>
                   </div>
                   <button
@@ -410,39 +474,57 @@ export default function AgentWorkspace({
                         : "bg-slate-800 text-slate-500 border border-white/5"
                     }`}
                   >
-                    {s.enabled ? "Active" : "Disabled"}
+                    {s.enabled ? t.active : t.disabled}
                   </button>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Proposal Grounding Guides */}
+          {/* Proposal Grounding Knowledge Base + File Upload */}
           <div className="rounded-2xl border border-white/8 bg-dark-900/60 p-5 backdrop-blur-sm">
-            <h3 className="text-sm font-semibold text-white flex items-center justify-between mb-3">
-              <span className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <FileText size={16} className="text-cyan-400" />
-                Grounding Knowledge Base
-              </span>
-              <button
-                onClick={() => setIsAddingDoc(!isAddingDoc)}
-                className="text-xs text-accent-400 hover:text-accent-300 font-medium"
-              >
-                {isAddingDoc ? "Cancel" : "+ Add Guide"}
-              </button>
-            </h3>
+                {t.groundingKb}
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingFile}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer"
+                  title="Upload text, markdown, or PDF file"
+                >
+                  <UploadCloud size={14} />
+                  {isUploadingFile ? "..." : t.uploadFile}
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".txt,.md,.pdf,.json"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => setIsAddingDoc(!isAddingDoc)}
+                  className="text-xs text-accent-400 hover:text-accent-300 font-medium cursor-pointer"
+                >
+                  {isAddingDoc ? t.cancel : t.addGuide}
+                </button>
+              </div>
+            </div>
 
             {isAddingDoc && (
               <div className="mb-3 p-3 rounded-xl bg-dark-800/80 border border-white/10 space-y-2 text-xs">
                 <input
                   type="text"
-                  placeholder="Doc title (e.g., My Upwork Proposal Blueprint)"
+                  placeholder={t.docTitlePlaceholder}
                   value={newDocName}
                   onChange={(e) => setNewDocName(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-dark-900 border border-white/10 text-white placeholder-slate-500"
                 />
                 <textarea
-                  placeholder="Paste proposal guidelines, rules, portfolio links, or preferred structure here..."
+                  placeholder={t.docContentPlaceholder}
                   value={newDocContent}
                   onChange={(e) => setNewDocContent(e.target.value)}
                   rows={3}
@@ -452,53 +534,66 @@ export default function AgentWorkspace({
                   onClick={handleSaveDoc}
                   className="w-full py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium cursor-pointer"
                 >
-                  Save Guide
+                  {t.saveGuide}
                 </button>
               </div>
             )}
 
-            <div className="space-y-1.5">
-              {docs.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-dark-800/30 border border-white/5 text-xs text-slate-300"
-                >
-                  <span className="truncate">{d.name}</span>
-                  <span className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-white/5">
-                    {d.type}
-                  </span>
+            <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+              {docs.length === 0 ? (
+                <div className="text-xs text-slate-500 py-3 text-center">
+                  {t.dropOrClick}
                 </div>
-              ))}
+              ) : (
+                docs.map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-dark-800/30 border border-white/5 text-xs text-slate-300"
+                  >
+                    <span className="truncate flex items-center gap-1.5">
+                      <FileCheck size={13} className="text-emerald-400 shrink-0" />
+                      {d.name}
+                    </span>
+                    <span className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-white/5 shrink-0">
+                      {d.type}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Opportunities Review Queue & Grounded Proposal Inspection (8 Cols) */}
+        {/* Column 2: Opportunities Review Queue & Grounded Proposal Inspection (8 Cols) */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Opportunities Evaluation Queue Header */}
           <div className="rounded-2xl border border-white/8 bg-dark-900/60 p-5 backdrop-blur-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-base font-semibold text-white flex items-center gap-2">
                   <ShieldCheck size={18} className="text-accent-400" />
-                  Candidate Queue & Human-in-the-Loop Review
+                  {t.candidateQueue}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Inspect agent fit scores, grounded proposals, and approve or reject before application.
+                  {t.candidateSubtitle}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 bg-dark-800/60 p-1 rounded-xl border border-white/5 text-xs">
-                {["ALL", "PENDING", "APPROVED", "REJECTED"].map((st) => (
+                {[
+                  { id: "ALL", label: t.filterAll },
+                  { id: "PENDING", label: t.filterPending },
+                  { id: "APPROVED", label: t.filterApproved },
+                  { id: "REJECTED", label: t.filterRejected },
+                ].map((st) => (
                   <button
-                    key={st}
-                    onClick={() => setFilterStage(st)}
+                    key={st.id}
+                    onClick={() => setFilterStage(st.id)}
                     className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                      filterStage === st
+                      filterStage === st.id
                         ? "bg-accent-600 text-white shadow-sm"
                         : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    {st}
+                    {st.label}
                   </button>
                 ))}
               </div>
@@ -507,26 +602,28 @@ export default function AgentWorkspace({
             {/* Opportunities List */}
             {filteredTasks.length === 0 ? (
               <div className="py-12 text-center text-slate-500 text-sm">
-                No candidate tasks matching filter in this run. Start a new run or select another from history.
+                {t.noTasks}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 max-h-[300px] overflow-y-auto pr-1">
-                {filteredTasks.map((t) => {
-                  const isSelected = selectedTask?.id === t.id;
-                  const score = t.score ?? 0;
+                {filteredTasks.map((taskItem) => {
+                  const isSelected = selectedTask?.id === taskItem.id;
+                  const score = taskItem.score ?? 0;
                   const scoreColor =
-                    score >= 80 ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" :
-                    score >= 60 ? "text-amber-400 border-amber-500/20 bg-amber-500/10" :
-                    "text-rose-400 border-rose-500/20 bg-rose-500/10";
+                    score >= 80
+                      ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10"
+                      : score >= 60
+                      ? "text-amber-400 border-amber-500/20 bg-amber-500/10"
+                      : "text-rose-400 border-rose-500/20 bg-rose-500/10";
 
                   return (
                     <div
-                      key={t.id}
+                      key={taskItem.id}
                       onClick={() => {
-                        setSelectedTask(t);
-                        setProposalEdit(t.proposalDraft || "");
+                        setSelectedTask(taskItem);
+                        setProposalEdit(taskItem.proposalDraft || "");
                       }}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer text-left ${
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
                           ? "bg-accent-500/10 border-accent-500/40 shadow-md shadow-accent-500/5"
                           : "bg-dark-800/40 border-white/5 hover:border-white/10 hover:bg-dark-800/80"
@@ -534,24 +631,26 @@ export default function AgentWorkspace({
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${scoreColor}`}>
-                          {score}% Match
+                          {score}% {t.match}
                         </span>
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                          {t.opportunity.sourceKey}
+                          {taskItem.opportunity.sourceKey}
                         </span>
                       </div>
                       <h4 className="text-xs font-semibold text-white line-clamp-1 mb-1">
-                        {t.opportunity.title}
+                        {taskItem.opportunity.title}
                       </h4>
                       <p className="text-[11px] text-slate-400 line-clamp-2 mb-2">
-                        {t.opportunity.description}
+                        {taskItem.opportunity.description}
                       </p>
                       <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-white/5">
-                        <span>{t.opportunity.budget || "Budget negotiable"}</span>
+                        <span>{taskItem.opportunity.budget || t.budgetNegotiable}</span>
                         <span className="font-semibold text-slate-300">
-                          {t.status === "APPROVED" && <span className="text-emerald-400">Approved ✓</span>}
-                          {t.status === "REJECTED" && <span className="text-rose-400">Rejected ✗</span>}
-                          {t.status === "PENDING_REVIEW" && <span className="text-amber-400">Pending Review</span>}
+                          {taskItem.status === "APPROVED" && <span className="text-emerald-400">{t.approvedBadge}</span>}
+                          {taskItem.status === "REJECTED" && <span className="text-rose-400">{t.rejectedBadge}</span>}
+                          {taskItem.status === "PENDING_REVIEW" && (
+                            <span className="text-amber-400">{t.pendingBadge}</span>
+                          )}
                         </span>
                       </div>
                     </div>
@@ -577,11 +676,17 @@ export default function AgentWorkspace({
                       </a>
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-1">
-                      <span>Source: <strong className="text-slate-200">{selectedTask.opportunity.sourceKey}</strong></span>
+                      <span>
+                        {t.source}: <strong className="text-slate-200">{selectedTask.opportunity.sourceKey}</strong>
+                      </span>
                       <span>•</span>
-                      <span>Budget: <strong className="text-slate-200">{selectedTask.opportunity.budget || "N/A"}</strong></span>
+                      <span>
+                        {t.budget}: <strong className="text-slate-200">{selectedTask.opportunity.budget || "N/A"}</strong>
+                      </span>
                       <span>•</span>
-                      <span>Fit: <strong className="text-emerald-400">{selectedTask.score}%</strong></span>
+                      <span>
+                        {t.fit}: <strong className="text-emerald-400">{selectedTask.score}%</strong>
+                      </span>
                     </div>
                   </div>
 
@@ -592,14 +697,14 @@ export default function AgentWorkspace({
                       className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                     >
                       <XCircle size={15} />
-                      Reject
+                      {t.rejectBtn}
                     </button>
                     <button
                       onClick={() => handleTaskAction(selectedTask.id, "APPROVED")}
                       className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
                     >
                       <CheckCircle2 size={15} />
-                      Approve Application
+                      {t.approveBtn}
                     </button>
                   </div>
                 </div>
@@ -610,7 +715,7 @@ export default function AgentWorkspace({
                     {selectedTask.recommendationReason && (
                       <div className="p-3 rounded-xl bg-dark-800/60 border border-white/5">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-400 block mb-1">
-                          Agent Fit Assessment
+                          {t.agentFitAssessment}
                         </span>
                         <p className="text-slate-300 leading-relaxed">
                           {selectedTask.recommendationReason}
@@ -621,7 +726,7 @@ export default function AgentWorkspace({
                       <div className="p-3 rounded-xl bg-rose-500/5 border border-rose-500/15">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-400 block mb-1 flex items-center gap-1">
                           <AlertTriangle size={12} />
-                          Risk & Boundary Warnings
+                          {t.riskWarnings}
                         </span>
                         <p className="text-slate-300 leading-relaxed">
                           {selectedTask.riskWarnings}
@@ -631,21 +736,22 @@ export default function AgentWorkspace({
                   </div>
                 )}
 
-                {/* Proposal Editor (Grounded) */}
+                {/* Grounded Proposal Editor */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <label className="font-semibold text-slate-300 flex items-center gap-1.5">
                       <FileText size={14} className="text-accent-400" />
-                      Grounded AI Proposal Draft (Editable)
+                      {t.groundedDraft}
                     </label>
                     <span className="text-[11px] text-slate-500">
-                      Grounded strictly in verified skills & knowledge base guidelines
+                      {t.groundedNotice}
                     </span>
                   </div>
                   <textarea
                     rows={7}
                     value={proposalEdit}
                     onChange={(e) => setProposalEdit(e.target.value)}
+                    dir="auto"
                     className="w-full p-3.5 rounded-xl bg-dark-800/80 border border-white/10 text-white placeholder-slate-500 text-xs font-mono leading-relaxed focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-all"
                   />
                   <div className="flex justify-end gap-2">
@@ -653,7 +759,7 @@ export default function AgentWorkspace({
                       onClick={() => handleTaskAction(selectedTask.id, "APPROVED", proposalEdit)}
                       className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-medium cursor-pointer"
                     >
-                      Save Draft Changes
+                      {t.saveDraft}
                     </button>
                   </div>
                 </div>
