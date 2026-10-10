@@ -27,6 +27,7 @@ import Profile from "./components/Profile";
 import Settings from "./components/Settings";
 import Analytics from "./components/Analytics";
 import Playground from "../playground/Playground";
+import AgentWorkspace from "./components/AgentWorkspace";
 
 interface Gig {
   id: string;
@@ -389,6 +390,12 @@ export default function App() {
                         onScrape={() => triggerScrape()}
                         scraping={scraping}
                         lastScraped={lastScraped}
+                      />
+                    )}
+                    {activeTab === "agent" && (
+                      <AgentWorkspace
+                        onShowToast={showToast}
+                        userSkills={userSkillsList}
                       />
                     )}
                     {activeTab === "gigs" && (

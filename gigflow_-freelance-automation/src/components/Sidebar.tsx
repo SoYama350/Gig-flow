@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Briefcase, User, BarChart3, Zap, Settings, LineChart, Moon, Sun, LogOut } from "lucide-react";
+import { Search, Briefcase, User, BarChart3, Zap, Settings, LineChart, Moon, Sun, LogOut, Bot } from "lucide-react";
 import { useLogout } from "../features/auth";
 
 interface SidebarProps {
@@ -10,6 +10,7 @@ interface SidebarProps {
 
 const tabs = [
   { id: "dashboard", icon: BarChart3, label: "Dashboard" },
+  { id: "agent", icon: Bot, label: "Agent Workspace" },
   { id: "gigs", icon: Search, label: "Gigs Feed" },
   { id: "analytics", icon: LineChart, label: "Analytics" },
   { id: "profile", icon: User, label: "Profile" },

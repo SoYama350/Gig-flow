@@ -8,6 +8,8 @@ import { generateProposal } from "./src/services/ai.ts";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { createApiRouter } from "./server/routes/index.js";
+import { createAgentRouter } from "./server/routes/agentRoutes.js";
+import { runDatabaseMigrationsAndSeed } from "./server/services/migrationService.js";
 import { authenticate } from "./server/middleware/authenticate.js";
 import { csrfProtection } from "./server/middleware/csrfProtection.js";
 import { TokenService } from "./server/services/tokenService.js";
@@ -28,6 +30,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Run database migration and seed
+  await runDatabaseMigrationsAndSeed(prisma);
+
   app.use(express.json());
   app.use(cookieParser());
   
@@ -37,8 +42,9 @@ async function startServer() {
   const tokenService = new TokenService(prisma);
   app.use(authenticate(tokenService, prisma));
 
-  // Mount new auth API router
+  // Mount API routers
   app.use('/api', createApiRouter(prisma));
+  app.use('/api', createAgentRouter(prisma));
 
   // ── API Routes ──────────────────────────────────────────
 
