@@ -17,6 +17,12 @@ import {
   UploadCloud,
   FileCheck,
   Trash2,
+  Edit3,
+  Eye,
+  Save,
+  X,
+  CreditCard,
+  Zap,
 } from "lucide-react";
 import { translations, Language } from "../i18n";
 
@@ -28,7 +34,8 @@ interface AgentTask {
   fitAssessment: string | null;
   recommendationReason: string | null;
   riskWarnings: string | null;
-  proposalDraft: string | null;
+  proposal?: string | null;
+  proposalDraft?: string | null;
   reviewedAt: string | null;
   opportunity: {
     id: string;
@@ -63,7 +70,18 @@ interface UserDoc {
   id: string;
   name: string;
   type: string;
+  extractedText?: string;
   updatedAt: string;
+}
+
+interface QuotaStatus {
+  allowed: boolean;
+  usedToday: number;
+  remainingFree: number;
+  credits: number;
+  tier: string;
+  limit: number;
+  message?: string;
 }
 
 export default function AgentWorkspace({
@@ -84,6 +102,7 @@ export default function AgentWorkspace({
   const [currentRun, setCurrentRun] = useState<AgentRun | null>(null);
   const [selectedTask, setSelectedTask] = useState<AgentTask | null>(null);
   const [proposalEdit, setProposalEdit] = useState("");
+  const [isEditingProposal, setIsEditingProposal] = useState(false);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [docs, setDocs] = useState<UserDoc[]>([]);
   const [newDocName, setNewDocName] = useState("");
@@ -92,6 +111,27 @@ export default function AgentWorkspace({
   const [filterStage, setFilterStage] = useState<string>("ALL");
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Quota & credits state
+  const [quota, setQuota] = useState<QuotaStatus | null>(null);
+
+  // Document modal (View & Edit)
+  const [activeDocModal, setActiveDocModal] = useState<UserDoc | null>(null);
+  const [docModalName, setDocModalName] = useState("");
+  const [docModalText, setDocModalText] = useState("");
+  const [savingDocModal, setSavingDocModal] = useState(false);
+
+  const fetchQuota = async () => {
+    try {
+      const res = await fetch("/api/user/ai-quota");
+      if (res.ok) {
+        const data = await res.json();
+        setQuota(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch quota:", e);
+    }
+  };
 
   const fetchRuns = async () => {
     try {
@@ -116,12 +156,14 @@ export default function AgentWorkspace({
         setCurrentRun(data);
         if (data.tasks?.length > 0) {
           const firstPending =
-            data.tasks.find((t: AgentTask) => t.status === "PENDING_REVIEW") || data.tasks[0];
+            data.tasks.find((task: AgentTask) => task.status === "PENDING_REVIEW") || data.tasks[0];
           setSelectedTask(firstPending);
-          setProposalEdit(firstPending.proposalDraft || "");
+          setProposalEdit(firstPending.proposal || firstPending.proposalDraft || "");
+          setIsEditingProposal(false);
         } else {
           setSelectedTask(null);
           setProposalEdit("");
+          setIsEditingProposal(false);
         }
       }
     } catch (e) {
@@ -154,6 +196,7 @@ export default function AgentWorkspace({
   };
 
   useEffect(() => {
+    fetchQuota();
     fetchRuns();
     fetchSources();
     fetchDocs();
@@ -161,31 +204,36 @@ export default function AgentWorkspace({
 
   const handleStartRun = async () => {
     if (!command.trim()) return;
+
+    // Check quota locally
+    if (quota && !quota.allowed) {
+      onShowToast(t.quotaExceeded, "error");
+      return;
+    }
+
     setSubmitting(true);
     onShowToast(t.agentInitToast);
     try {
-      const storedKey = typeof localStorage !== "undefined"
-        ? (JSON.parse(localStorage.getItem("gigflow_settings") || "{}")?.apiKey || "")
-        : "";
-
       const res = await fetch("/api/agent-runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           instruction: command.trim(),
           command: command.trim(),
-          apiKey: storedKey,
         }),
       });
+
       if (res.ok) {
         const newRun = await res.json();
         setCommand("");
         onShowToast(t.agentDoneToast);
         fetchRuns();
         fetchRunDetails(newRun.id);
+        fetchQuota();
       } else {
         const err = await res.json();
         onShowToast(err.error || "Failed to start run", "error");
+        fetchQuota();
       }
     } catch (err: any) {
       onShowToast(err?.message || "Failed to contact agent", "error");
@@ -208,6 +256,7 @@ export default function AgentWorkspace({
       });
       if (res.ok) {
         onShowToast(status === "APPROVED" ? t.taskApproved : t.taskRejected);
+        setIsEditingProposal(false);
         if (currentRun) {
           fetchRunDetails(currentRun.id);
         }
@@ -239,6 +288,39 @@ export default function AgentWorkspace({
       }
     } catch {
       onShowToast("Failed to save document", "error");
+    }
+  };
+
+  const handleOpenDocModal = (doc: UserDoc) => {
+    setActiveDocModal(doc);
+    setDocModalName(doc.name);
+    setDocModalText(doc.extractedText || "");
+  };
+
+  const handleSaveDocModal = async () => {
+    if (!activeDocModal) return;
+    setSavingDocModal(true);
+    try {
+      const res = await fetch(`/api/documents/${activeDocModal.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: docModalName.trim(),
+          extractedText: docModalText,
+          content: docModalText,
+        }),
+      });
+      if (res.ok) {
+        onShowToast(t.docUpdated);
+        setActiveDocModal(null);
+        fetchDocs();
+      } else {
+        onShowToast("Failed to update document", "error");
+      }
+    } catch {
+      onShowToast("Failed to update document", "error");
+    } finally {
+      setSavingDocModal(false);
     }
   };
 
@@ -347,6 +429,29 @@ export default function AgentWorkspace({
               {t.agentSubtitle}
             </p>
           </div>
+
+          {/* AI Usage & Subscription Plan Card */}
+          {quota && (
+            <div className="p-3 rounded-xl bg-dark-800/80 border border-white/10 shrink-0 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-cyan-500 flex items-center justify-center text-white shrink-0 shadow-md">
+                <Zap size={18} />
+              </div>
+              <div className="text-xs">
+                <div className="flex items-center gap-1.5 font-semibold text-white">
+                  <span>{t.quotaStatus.replace("{used}", String(quota.usedToday)).replace("{limit}", String(quota.limit))}</span>
+                </div>
+                <div className="text-slate-400 text-[11px] mt-0.5 flex items-center gap-2">
+                  <span>
+                    {language === "ar" ? "رصيد الكريديت:" : "Credits:"} <strong className="text-emerald-400 font-mono">{quota.credits}</strong>
+                  </span>
+                  <span>•</span>
+                  <span className="text-accent-400 font-medium">
+                    {quota.tier === "FREE" ? (language === "ar" ? "باقة مجانية" : "Free Plan") : quota.tier}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Command Input Box */}
@@ -499,7 +604,7 @@ export default function AgentWorkspace({
             </div>
           </div>
 
-          {/* Proposal Grounding Knowledge Base + File Upload */}
+          {/* Proposal Grounding Knowledge Base + File Upload & Document Viewer/Editor */}
           <div className="rounded-2xl border border-white/8 bg-dark-900/60 p-5 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -566,22 +671,29 @@ export default function AgentWorkspace({
                 docs.map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-dark-800/30 border border-white/5 text-xs text-slate-300 group"
+                    className="flex items-center justify-between p-2 rounded-lg bg-dark-800/30 border border-white/5 text-xs text-slate-300 group hover:border-white/10 transition-colors"
                   >
-                    <span className="truncate flex items-center gap-1.5 flex-1 mr-2">
+                    <button
+                      onClick={() => handleOpenDocModal(d)}
+                      className="truncate flex items-center gap-1.5 flex-1 mr-2 text-start hover:text-accent-400 cursor-pointer"
+                    >
                       <FileCheck size={13} className="text-emerald-400 shrink-0" />
-                      <span className="truncate">{d.name}</span>
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-white/5">
-                        {d.type}
-                      </span>
+                      <span className="truncate font-medium">{d.name}</span>
+                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleOpenDocModal(d)}
+                        className="text-slate-400 hover:text-cyan-400 p-1 rounded transition-colors cursor-pointer"
+                        title={t.editDoc}
+                      >
+                        <Edit3 size={12} />
+                      </button>
                       <button
                         onClick={() => handleDeleteDoc(d.id, d.name)}
                         className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
                         title={t.delete}
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>
@@ -648,7 +760,8 @@ export default function AgentWorkspace({
                       key={taskItem.id}
                       onClick={() => {
                         setSelectedTask(taskItem);
-                        setProposalEdit(taskItem.proposalDraft || "");
+                        setProposalEdit(taskItem.proposal || taskItem.proposalDraft || "");
+                        setIsEditingProposal(false);
                       }}
                       className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
@@ -686,7 +799,7 @@ export default function AgentWorkspace({
               </div>
             )}
 
-            {/* Selected Task Details & Grounded Proposal Editor */}
+            {/* Selected Task Details & Grounded Proposal Inspection */}
             {selectedTask && (
               <div className="border-t border-white/10 pt-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -763,7 +876,7 @@ export default function AgentWorkspace({
                   </div>
                 )}
 
-                {/* Grounded Proposal Editor */}
+                {/* Grounded Proposal Draft: View Mode by default, Edit on Click */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <label className="font-semibold text-slate-300 flex items-center gap-1.5">
@@ -774,27 +887,121 @@ export default function AgentWorkspace({
                       {t.groundedNotice}
                     </span>
                   </div>
-                  <textarea
-                    rows={7}
-                    value={proposalEdit}
-                    onChange={(e) => setProposalEdit(e.target.value)}
-                    dir="auto"
-                    className="w-full p-3.5 rounded-xl bg-dark-800/80 border border-white/10 text-white placeholder-slate-500 text-xs font-mono leading-relaxed focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-all"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => handleTaskAction(selectedTask.id, "APPROVED", proposalEdit)}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-medium cursor-pointer"
+
+                  {!isEditingProposal ? (
+                    /* Read-Only Display Mode */
+                    <div
+                      onClick={() => setIsEditingProposal(true)}
+                      className="group relative p-4 rounded-xl bg-dark-800/60 border border-white/10 hover:border-accent-500/40 text-slate-200 text-xs font-mono leading-relaxed transition-all cursor-pointer whitespace-pre-wrap select-text"
+                      title={t.clickToEditNotice}
                     >
-                      {t.saveDraft}
-                    </button>
-                  </div>
+                      <div className="absolute top-2.5 left-2.5 opacity-0 group-hover:opacity-100 transition-opacity bg-accent-500/20 text-accent-400 px-2 py-0.5 rounded text-[10px] font-sans flex items-center gap-1 pointer-events-none">
+                        <Edit3 size={11} /> {t.editDraftBtn}
+                      </div>
+                      {proposalEdit || (
+                        <span className="text-slate-500 italic">
+                          {language === "ar" ? "لا يوجد مقترح تم توليده بعد." : "No proposal drafted yet."}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    /* Active Edit Mode */
+                    <div className="space-y-2">
+                      <div className="text-[11px] text-cyan-400 flex items-center gap-1">
+                        <Edit3 size={12} />
+                        <span>{t.editDraftBtn}</span>
+                      </div>
+                      <textarea
+                        rows={8}
+                        value={proposalEdit}
+                        onChange={(e) => setProposalEdit(e.target.value)}
+                        dir="auto"
+                        autoFocus
+                        className="w-full p-3.5 rounded-xl bg-dark-800 border border-accent-500/50 text-white placeholder-slate-500 text-xs font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-accent-500 transition-all"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setIsEditingProposal(false)}
+                          className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-medium cursor-pointer"
+                        >
+                          {t.cancel}
+                        </button>
+                        <button
+                          onClick={() => handleTaskAction(selectedTask.id, "APPROVED", proposalEdit)}
+                          className="px-4 py-1.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-md shadow-accent-600/30"
+                        >
+                          <Save size={13} />
+                          {t.saveDraft}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* ── Document View & Edit Modal ──────────────────────── */}
+      {activeDocModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-dark-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <FileText size={16} className="text-cyan-400" />
+                {t.docModalTitle}
+              </h3>
+              <button
+                onClick={() => setActiveDocModal(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">{t.docTitlePlaceholder}</label>
+                <input
+                  type="text"
+                  value={docModalName}
+                  onChange={(e) => setDocModalName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-dark-800 border border-white/10 text-white font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">{t.docContentPlaceholder}</label>
+                <textarea
+                  rows={14}
+                  value={docModalText}
+                  onChange={(e) => setDocModalText(e.target.value)}
+                  dir="auto"
+                  className="w-full p-3 rounded-xl bg-dark-800 border border-white/10 text-white font-mono leading-relaxed resize-none focus:outline-none focus:border-accent-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-white/10 bg-dark-850">
+              <button
+                onClick={() => setActiveDocModal(null)}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium cursor-pointer"
+              >
+                {t.cancel}
+              </button>
+              <button
+                onClick={handleSaveDocModal}
+                disabled={savingDocModal}
+                className="btn-primary px-5 py-2 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                {savingDocModal ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                {t.saveChanges}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

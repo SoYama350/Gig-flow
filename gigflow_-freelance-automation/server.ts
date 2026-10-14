@@ -13,6 +13,7 @@ import { runDatabaseMigrationsAndSeed } from "./server/services/migrationService
 import { authenticate } from "./server/middleware/authenticate.js";
 import { csrfProtection } from "./server/middleware/csrfProtection.js";
 import { TokenService } from "./server/services/tokenService.js";
+import { AiQuotaService } from "./server/services/aiQuotaService.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
@@ -280,6 +281,15 @@ async function startServer() {
     }
 
     try {
+      // Enforce daily quota
+      const quotaCheck = await AiQuotaService.checkQuota(prisma, user.id);
+      if (!quotaCheck.allowed) {
+        return res.status(403).json({
+          error: quotaCheck.message || "Daily free AI limit reached. Please upgrade to continue.",
+          quota: quotaCheck,
+        });
+      }
+
       const { gigId, userSkills, userName, userBio, language, apiKey: reqApiKey } = req.body;
       const gig = await prisma.gig.findUnique({ where: { id: gigId } });
       if (!gig) {
@@ -288,7 +298,7 @@ async function startServer() {
 
       const apiKey = reqApiKey || process.env.GEMINI_API_KEY;
       if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
-        return res.status(400).json({ error: "GEMINI_API_KEY is not configured. Please enter your API key in Settings." });
+        return res.status(400).json({ error: "Server AI service is currently unavailable. Please check back shortly." });
       }
 
       const proposal = await generateProposal({
@@ -304,6 +314,11 @@ async function startServer() {
       await prisma.userGig.update({
         where: { id: userGig.id },
         data: { proposal, status: "PROPOSAL_READY" },
+      });
+
+      // Deduct quota
+      await AiQuotaService.consumeQuota(prisma, user.id).catch((e) => {
+        console.warn("[QUOTA] Warning consuming quota:", e.message);
       });
 
       res.json({ proposal });

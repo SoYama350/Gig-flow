@@ -27,6 +27,12 @@ model User {
   // OAuth
   googleId          String?  @unique
 
+  // AI Usage & Subscription Credits
+  aiUsageToday      Int      @default(0)
+  aiUsageDate       String?  // format: YYYY-MM-DD
+  aiCredits         Int      @default(0)
+  subscriptionTier  String   @default("FREE") // FREE, PRO, UNLIMITED
+
   skills            Skill[]
   refreshTokens     RefreshToken[]
   userGigs          UserGig[]

@@ -116,41 +116,45 @@ export default function Settings({
           </div>
         </motion.div>
 
-        {/* API Key */}
+        {/* AI Engine & Managed Subscription Status */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="glass-card rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
-              <Key size={15} className="text-white" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0">
+              <Shield size={15} className="text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">{t.geminiKeyLabel}</h2>
-              <p className="text-xs text-slate-400">{language === "ar" ? "مطلوب لتوليد وتحسين مقترحات الذكاء الاصطناعي" : "Required for AI proposal generation"}</p>
+              <h2 className="text-sm font-semibold text-white">
+                {language === "ar" ? "محرك الذكاء الاصطناعي المدمج (Managed AI Engine)" : "Built-in Managed AI Engine"}
+              </h2>
+              <p className="text-xs text-slate-400">
+                {language === "ar"
+                  ? "المحرك مدمج ومؤمّن داخل النظام مباشرة دون الحاجة لإدخال أو كشف أي مفاتيح برمجية"
+                  : "AI engine is integrated and secured internally. No manual API keys required."}
+              </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type={showKey ? "text" : "password"}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={t.geminiKeyPlaceholder}
-                className={`w-full bg-dark-800 border border-white/6 rounded-xl py-3 text-sm text-white placeholder-slate-500 focus:border-accent-500/50 transition-colors font-mono ${
-                  isRtl ? "pr-4 pl-14" : "pl-4 pr-14"
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey(!showKey)}
-                className={`absolute top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer text-xs ${
-                  isRtl ? "left-3" : "right-3"
-                }`}
-              >
-                {showKey ? (language === "ar" ? "إخفاء" : "Hide") : (language === "ar" ? "إظهار" : "Show")}
-              </button>
+          <div className="p-3.5 rounded-xl bg-dark-800/80 border border-white/5 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-300 font-medium">
+                {language === "ar" ? "خطة الاستخدام الحالية:" : "Current Plan:"}
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-accent-500/15 text-accent-400 border border-accent-500/20 font-bold">
+                {language === "ar" ? "باقة مجانية (Free Tier)" : "Free Tier"}
+              </span>
             </div>
-            <button onClick={handleTestKey} className="btn-ghost text-xs px-3 rounded-xl cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0">
-              <Shield size={14} /> {t.testKeyBtn}
-            </button>
+            <div className="flex items-center justify-between text-slate-400">
+              <span>{language === "ar" ? "الحد اليومي المجاني:" : "Daily Free Limit:"}</span>
+              <span className="font-semibold text-slate-200">
+                {language === "ar" ? "5 استخدامات مجانية يومياً" : "5 free uses per day"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-slate-400">
+              <span>{language === "ar" ? "حالة الخدمة:" : "Service Status:"}</span>
+              <span className="text-emerald-400 font-medium flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                {language === "ar" ? "نشط ومتاح للجميع" : "Active & Ready"}
+              </span>
+            </div>
           </div>
         </motion.div>
 

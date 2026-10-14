@@ -3,6 +3,7 @@ import { PrismaClient } from "../../src/generated/prisma/client.js";
 import { AgentOrchestrator } from "../../src/services/agent/agentOrchestrator.js";
 import { sourceRegistry } from "../../src/services/adapters/sourceRegistry.js";
 import { ProposalGroundingEngine } from "../../src/services/agent/proposalGrounding.js";
+import { AiQuotaService } from "../services/aiQuotaService.js";
 
 export function createAgentRouter(prisma: PrismaClient) {
   const router = Router();
@@ -14,6 +15,18 @@ export function createAgentRouter(prisma: PrismaClient) {
     if (demo) return demo;
     return await prisma.user.findFirst();
   };
+
+  // 0. Get AI Quota and Credit Status
+  router.get("/user/ai-quota", async (req, res) => {
+    const user = await getActiveUser(req);
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+    try {
+      const quota = await AiQuotaService.checkQuota(prisma, user.id);
+      res.json(quota);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to check quota" });
+    }
+  });
 
   // 1. Create Agent Run
   router.post("/agent-runs", async (req, res) => {
@@ -27,12 +40,26 @@ export function createAgentRouter(prisma: PrismaClient) {
     }
 
     try {
+      // Check quota before starting
+      const quotaCheck = await AiQuotaService.checkQuota(prisma, user.id);
+      if (!quotaCheck.allowed) {
+        return res.status(403).json({
+          error: quotaCheck.message || "Daily free AI limit reached. Please upgrade or add credits to continue.",
+          quota: quotaCheck,
+        });
+      }
+
       const run = await prisma.agentRun.create({
         data: {
           userId: user.id,
           instruction: instruction.trim(),
           status: "DRAFT",
         },
+      });
+
+      // Deduct quota
+      await AiQuotaService.consumeQuota(prisma, user.id).catch((e) => {
+        console.warn("[QUOTA] Warning consuming quota:", e.message);
       });
 
       // Start asynchronous execution
@@ -291,6 +318,47 @@ export function createAgentRouter(prisma: PrismaClient) {
       res.status(201).json(doc);
     } catch (error) {
       res.status(500).json({ error: "Failed to create document" });
+    }
+  });
+
+  router.get("/documents/:id", async (req, res) => {
+    const user = await getActiveUser(req);
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+
+    try {
+      const doc = await prisma.userDocument.findFirst({
+        where: { id: req.params.id, userId: user.id },
+      });
+      if (!doc) return res.status(404).json({ error: "Document not found" });
+      res.json(doc);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch document" });
+    }
+  });
+
+  router.put("/documents/:id", async (req, res) => {
+    const user = await getActiveUser(req);
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+
+    const { name, extractedText, content } = req.body;
+    const newContent = extractedText !== undefined ? extractedText : content;
+
+    try {
+      const doc = await prisma.userDocument.findFirst({
+        where: { id: req.params.id, userId: user.id },
+      });
+      if (!doc) return res.status(404).json({ error: "Document not found" });
+
+      const updated = await prisma.userDocument.update({
+        where: { id: doc.id },
+        data: {
+          name: name ? String(name).trim() : undefined,
+          extractedText: newContent !== undefined ? String(newContent) : undefined,
+        },
+      });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update document" });
     }
   });
 
