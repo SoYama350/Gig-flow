@@ -16,6 +16,7 @@ import {
   Database,
   UploadCloud,
   FileCheck,
+  Trash2,
 } from "lucide-react";
 import { translations, Language } from "../i18n";
 
@@ -238,6 +239,23 @@ export default function AgentWorkspace({
       }
     } catch {
       onShowToast("Failed to save document", "error");
+    }
+  };
+
+  const handleDeleteDoc = async (id: string, name: string) => {
+    if (!window.confirm(`${t.confirmDeleteDoc} (${name})`)) return;
+    try {
+      const res = await fetch(`/api/documents/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        onShowToast(t.docDeleted);
+        fetchDocs();
+      } else {
+        onShowToast("Failed to delete document", "error");
+      }
+    } catch {
+      onShowToast("Failed to delete document", "error");
     }
   };
 
@@ -548,15 +566,24 @@ export default function AgentWorkspace({
                 docs.map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-dark-800/30 border border-white/5 text-xs text-slate-300"
+                    className="flex items-center justify-between p-2 rounded-lg bg-dark-800/30 border border-white/5 text-xs text-slate-300 group"
                   >
-                    <span className="truncate flex items-center gap-1.5">
+                    <span className="truncate flex items-center gap-1.5 flex-1 mr-2">
                       <FileCheck size={13} className="text-emerald-400 shrink-0" />
-                      {d.name}
+                      <span className="truncate">{d.name}</span>
                     </span>
-                    <span className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-white/5 shrink-0">
-                      {d.type}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-white/5">
+                        {d.type}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteDoc(d.id, d.name)}
+                        className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
+                        title={t.delete}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

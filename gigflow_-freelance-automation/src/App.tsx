@@ -406,6 +406,7 @@ export default function App() {
                         onScrape={() => triggerScrape()}
                         scraping={scraping}
                         lastScraped={lastScraped}
+                        language={language}
                       />
                     )}
                     {activeTab === "agent" && (
@@ -425,10 +426,11 @@ export default function App() {
                         onSaveProposal={handleSaveProposal}
                         generatingFor={generatingFor}
                         userSkills={userSkillsList}
+                        language={language}
                       />
                     )}
                     {activeTab === "analytics" && (
-                      <Analytics gigs={gigs} userSkills={userSkillsList} />
+                      <Analytics gigs={gigs} userSkills={userSkillsList} language={language} />
                     )}
                     {activeTab === "profile" && (
                       <Profile
@@ -439,6 +441,7 @@ export default function App() {
                         onSave={handleProfileSave}
                         loading={profileLoading}
                         message={profileMessage}
+                        language={language}
                       />
                     )}
                     {activeTab === "settings" && (
@@ -447,6 +450,7 @@ export default function App() {
                         onThemeChange={setTheme}
                         onShowToast={showToast}
                         onSettingsSaved={initAutoScrape}
+                        language={language}
                       />
                     )}
                   </motion.div>

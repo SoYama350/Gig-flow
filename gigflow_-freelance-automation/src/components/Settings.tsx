@@ -3,29 +3,39 @@ import { motion } from "motion/react";
 import { Key, Clock, Globe, Save, CheckCircle2, RefreshCw, Shield, ChevronRight, MoonStar, SunMedium } from "lucide-react";
 import { type Theme } from "../theme";
 import { httpClient } from "../shared/api/httpClient";
+import { translations, Language } from "../i18n";
 
 interface SettingsProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   onShowToast: (msg: string, type?: "success" | "error") => void;
   onSettingsSaved?: () => void;
+  language?: Language;
 }
 
-const SCRAPE_INTERVALS = [
-  { label: "Off", value: 0 },
-  { label: "Every 15 min", value: 15 },
-  { label: "Every 30 min", value: 30 },
-  { label: "Every 1 hour", value: 60 },
-  { label: "Every 2 hours", value: 120 },
-  { label: "Every 6 hours", value: 360 },
-];
-
-export default function Settings({ theme, onThemeChange, onShowToast, onSettingsSaved }: SettingsProps) {
+export default function Settings({
+  theme,
+  onThemeChange,
+  onShowToast,
+  onSettingsSaved,
+  language = "ar",
+}: SettingsProps) {
+  const t = translations[language] || translations.ar;
+  const isRtl = language === "ar";
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [scrapeInterval, setScrapeInterval] = useState(0);
   const [platform, setPlatform] = useState("mostaql");
   const [saved, setSaved] = useState(false);
+
+  const scrapeIntervalOptions = [
+    { label: t.intervalOff, value: 0 },
+    { label: t.interval15m, value: 15 },
+    { label: t.interval30m, value: 30 },
+    { label: t.interval1h, value: 60 },
+    { label: t.interval2h, value: 120 },
+    { label: t.interval6h, value: 360 },
+  ];
 
   useEffect(() => {
     const stored = localStorage.getItem("gigflow_settings");
@@ -43,48 +53,48 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
     const settings = { apiKey: apiKey.trim(), scrapeInterval, platform };
     localStorage.setItem("gigflow_settings", JSON.stringify(settings));
     setSaved(true);
-    onShowToast("Settings saved!");
+    onShowToast(t.saved);
     if (onSettingsSaved) onSettingsSaved();
     setTimeout(() => setSaved(false), 2500);
   };
 
   const handleTestKey = async () => {
-    onShowToast("Testing Gemini key...");
+    onShowToast(language === "ar" ? "جاري اختبار مفتاح Gemini..." : "Testing Gemini key...");
     try {
       await httpClient.post("/api/test-key", { apiKey: apiKey.trim() });
-      onShowToast("Gemini key is valid ✓");
+      onShowToast(language === "ar" ? "مفتاح Gemini صالح ويعمل بنجاح ✓" : "Gemini key is valid ✓");
     } catch (error: any) {
-      onShowToast(error?.message || "Gemini key is invalid or has no quota", "error");
+      onShowToast(error?.message || (language === "ar" ? "المفتاح غير صالح أو استنفد الحصة" : "Gemini key is invalid or has no quota"), "error");
     }
   };
 
   const handleClearDB = async () => {
-    if (!confirm("Are you sure? This will delete ALL scraped gigs. This cannot be undone.")) return;
+    if (!confirm(language === "ar" ? "هل أنت متأكد؟ سيتم حذف جميع المشاريع المجلوبة من قاعدة البيانات." : "Are you sure? This will delete ALL scraped gigs. This cannot be undone.")) return;
     try {
       await httpClient.delete("/api/gigs/all");
-      onShowToast("All gigs cleared from database");
+      onShowToast(language === "ar" ? "تم مسح جميع المشاريع بنجاح" : "All gigs cleared from database");
     } catch (error: any) {
       onShowToast(error?.message || "Failed to clear gigs", "error");
     }
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-2xl mx-auto animate-fade-in-up">
+    <div className={`p-6 md:p-8 max-w-2xl mx-auto animate-fade-in-up ${isRtl ? "text-right" : "text-left"}`}>
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Settings</h1>
-        <p className="text-slate-500 text-sm mt-1">Configure GigFlow to match your workflow</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{t.settingsTitle}</h1>
+        <p className="text-slate-400 text-sm mt-1">{t.settingsSubtitle}</p>
       </div>
 
       <div className="space-y-4">
         {/* Appearance */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
               {theme === "dark" ? <MoonStar size={15} className="text-white" /> : <SunMedium size={15} className="text-white" />}
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Appearance</h2>
-              <p className="text-xs text-slate-500">Switch between dark and light mode</p>
+              <h2 className="text-sm font-semibold text-white">{t.appearance}</h2>
+              <p className="text-xs text-slate-400">{language === "ar" ? "التبديل بين الوضع الليلي والوضع الفاتح" : "Switch between dark and light mode"}</p>
             </div>
           </div>
 
@@ -100,22 +110,21 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
                     : "border-white/5 bg-dark-800 text-slate-500 hover:text-slate-300"
                 }`}
               >
-                {option === "dark" ? "Dark" : "Light"}
+                {option === "dark" ? t.darkMode : t.lightMode}
               </button>
             ))}
           </div>
-          <p className="text-xs text-slate-600">Theme preference is saved automatically and applies across the app.</p>
         </motion.div>
 
         {/* API Key */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="glass-card rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
               <Key size={15} className="text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Gemini API Key</h2>
-              <p className="text-xs text-slate-500">Required for AI proposal generation</p>
+              <h2 className="text-sm font-semibold text-white">{t.geminiKeyLabel}</h2>
+              <p className="text-xs text-slate-400">{language === "ar" ? "مطلوب لتوليد وتحسين مقترحات الذكاء الاصطناعي" : "Required for AI proposal generation"}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -124,39 +133,40 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="AIzaSy..."
-                className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors font-mono"
+                placeholder={t.geminiKeyPlaceholder}
+                className={`w-full bg-dark-800 border border-white/6 rounded-xl py-3 text-sm text-white placeholder-slate-500 focus:border-accent-500/50 transition-colors font-mono ${
+                  isRtl ? "pr-4 pl-14" : "pl-4 pr-14"
+                }`}
               />
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer text-xs"
+                className={`absolute top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer text-xs ${
+                  isRtl ? "left-3" : "right-3"
+                }`}
               >
-                {showKey ? "Hide" : "Show"}
+                {showKey ? (language === "ar" ? "إخفاء" : "Hide") : (language === "ar" ? "إظهار" : "Show")}
               </button>
             </div>
-            <button onClick={handleTestKey} className="btn-ghost text-xs px-3 rounded-xl cursor-pointer whitespace-nowrap flex items-center gap-1.5">
-              <Shield size={14} /> Test
+            <button onClick={handleTestKey} className="btn-ghost text-xs px-3 rounded-xl cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0">
+              <Shield size={14} /> {t.testKeyBtn}
             </button>
           </div>
-          <p className="text-xs text-slate-600">
-            Paste your Google Gemini API key here and click Save Settings, or configure GEMINI_API_KEY in .env.local.
-          </p>
         </motion.div>
 
         {/* Scrape Interval */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
               <Clock size={15} className="text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Auto-Scrape Interval</h2>
-              <p className="text-xs text-slate-500">Automatically fetch new gigs in the background</p>
+              <h2 className="text-sm font-semibold text-white">{t.autoScrapeLabel}</h2>
+              <p className="text-xs text-slate-400">{t.autoScrapeDesc}</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {SCRAPE_INTERVALS.map((opt) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {scrapeIntervalOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setScrapeInterval(opt.value)}
@@ -173,7 +183,7 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
           {scrapeInterval > 0 && (
             <p className="text-xs text-cyan-400 flex items-center gap-1.5">
               <RefreshCw size={11} className="animate-spin" />
-              Will scrape every {scrapeInterval} minutes
+              {language === "ar" ? `سيتم الجلب تلقائياً كل ${scrapeInterval} دقيقة` : `Will scrape every ${scrapeInterval} minutes`}
             </p>
           )}
         </motion.div>
@@ -181,31 +191,31 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
         {/* Platform */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center shrink-0">
               <Globe size={15} className="text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Scrape Platform</h2>
-              <p className="text-xs text-slate-500">Choose which freelance platform to scrape</p>
+              <h2 className="text-sm font-semibold text-white">{t.primaryPlatform}</h2>
+              <p className="text-xs text-slate-400">{language === "ar" ? "اختر منصة العمل الحر الرئيسية" : "Choose which freelance platform to scrape"}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
-              { id: "mostaql", label: "Mostaql", desc: "Arabic freelance platform", disabled: false },
-              { id: "khamsat", label: "Khamsat", desc: "Arabic community requests", disabled: false },
+              { id: "mostaql", label: "مستقل (Mostaql)", desc: language === "ar" ? "مشاريع العمل الحر العربية" : "Arabic freelance platform", disabled: false },
+              { id: "khamsat", label: "خمسات (Khamsat)", desc: language === "ar" ? "طلبات مجتمع خمسات" : "Arabic community requests", disabled: false },
             ].map((p) => (
               <button
                 key={p.id}
                 onClick={() => !p.disabled && setPlatform(p.id)}
                 disabled={p.disabled}
-                className={`flex-1 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                className={`p-3 rounded-xl border text-start transition-all cursor-pointer ${
                   platform === p.id && !p.disabled
                     ? "bg-accent-500/15 border-accent-500/30"
                     : "bg-dark-800 border-white/5 opacity-50"
                 } ${p.disabled ? "cursor-not-allowed" : ""}`}
               >
                 <div className="text-sm font-medium text-white">{p.label}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{p.desc}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{p.desc}</div>
               </button>
             ))}
           </div>
@@ -213,13 +223,13 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
 
         {/* Danger Zone */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-2xl p-6 border border-rose-500/10">
-          <h2 className="text-sm font-semibold text-rose-400 mb-4">Danger Zone</h2>
+          <h2 className="text-sm font-semibold text-rose-400 mb-4">{language === "ar" ? "منطقة الحظر والمسح" : "Danger Zone"}</h2>
           <button
             onClick={handleClearDB}
             className="w-full py-2.5 px-4 rounded-xl border border-rose-500/20 text-rose-400 text-sm font-medium hover:bg-rose-500/10 transition-all cursor-pointer flex items-center justify-between"
           >
-            <span>Clear all scraped gigs</span>
-            <ChevronRight size={16} />
+            <span>{language === "ar" ? "مسح جميع المشاريع المجلوبة من قاعدة البيانات" : "Clear all scraped gigs"}</span>
+            <ChevronRight size={16} className={isRtl ? "rotate-180" : ""} />
           </button>
         </motion.div>
 
@@ -232,7 +242,7 @@ export default function Settings({ theme, onThemeChange, onShowToast, onSettings
           className="btn-primary w-full flex items-center justify-center gap-2 text-sm cursor-pointer py-3"
         >
           {saved ? <CheckCircle2 size={16} /> : <Save size={16} />}
-          {saved ? "Saved!" : "Save Settings"}
+          {saved ? t.saved : t.saveSettingsBtn}
         </motion.button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { User, CheckCircle2, Loader2, Save, Plus, X } from "lucide-react";
+import { translations, Language } from "../i18n";
 
 interface ProfileProps {
   email: string;
@@ -14,6 +15,7 @@ interface ProfileProps {
   onSave: () => void;
   loading: boolean;
   message: string;
+  language?: Language;
 }
 
 const PRESET_SKILLS = [
@@ -23,7 +25,12 @@ const PRESET_SKILLS = [
   "Graphic Design", "Logo Design", "SEO", "Content Writing",
 ];
 
-export default function Profile({ email, setEmail, name, setName, bio, setBio, skills, setSkills, onSave, loading, message }: ProfileProps) {
+export default function Profile({
+  email, setEmail, name, setName, bio, setBio, skills, setSkills,
+  onSave, loading, message, language = "ar"
+}: ProfileProps) {
+  const t = translations[language] || translations.ar;
+  const isRtl = language === "ar";
   const [newSkill, setNewSkill] = useState("");
   const skillList = skills.split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -52,23 +59,25 @@ export default function Profile({ email, setEmail, name, setName, bio, setBio, s
   );
 
   return (
-    <div className="p-6 md:p-8 max-w-2xl mx-auto animate-fade-in-up">
+    <div className={`p-6 md:p-8 max-w-2xl mx-auto animate-fade-in-up ${isRtl ? "text-right" : "text-left"}`}>
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Profile</h1>
-        <p className="text-slate-500 text-sm mt-1">Configure your freelancer identity for AI proposals</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{t.profileTitle}</h1>
+        <p className="text-slate-400 text-sm mt-1">{t.profileSubtitle}</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-6 md:p-8 space-y-6">
         {/* Avatar header */}
         <div className="flex items-center gap-4 pb-6 border-b border-white/5">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-500 to-cyan-500 flex items-center justify-center glow-accent text-white text-xl font-bold">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-500 to-cyan-500 flex items-center justify-center glow-accent text-white text-xl font-bold shrink-0">
             {name ? name[0].toUpperCase() : "?"}
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">{name || "Your Name"}</h2>
-            <p className="text-sm text-slate-500">{email || "your@email.com"}</p>
+            <h2 className="text-lg font-semibold text-white">{name || (language === "ar" ? "اسمك هنا" : "Your Name")}</h2>
+            <p className="text-sm text-slate-400">{email || "your@email.com"}</p>
             {skillList.length > 0 && (
-              <p className="text-xs text-accent-400 mt-0.5">{skillList.length} skills added</p>
+              <p className="text-xs text-accent-400 mt-0.5">
+                {language === "ar" ? `تمت إضافة ${skillList.length} مهارات` : `${skillList.length} skills added`}
+              </p>
             )}
           </div>
         </div>
@@ -76,42 +85,42 @@ export default function Profile({ email, setEmail, name, setName, bio, setBio, s
         <form onSubmit={(e) => { e.preventDefault(); onSave(); }} className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Full Name</label>
+              <label className="block text-xs font-medium text-slate-400 mb-2">{t.fullName}</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ahmed Hassan"
-                className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors"
+                placeholder={t.fullNamePlaceholder}
+                className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-accent-500/50 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Email</label>
+              <label className="block text-xs font-medium text-slate-400 mb-2">{t.emailAddress}</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="dev@example.com"
                 required
-                className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors"
+                className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-accent-500/50 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-2">Bio / Experience</label>
+            <label className="block text-xs font-medium text-slate-400 mb-2">{t.bioLabel}</label>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Brief description of your experience and expertise..."
+              placeholder={t.bioPlaceholder}
               rows={3}
-              className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors resize-none"
+              className="w-full bg-dark-800 border border-white/6 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-accent-500/50 transition-colors resize-none leading-relaxed"
             />
           </div>
 
           {/* Skill Tags UI */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-2">Skills</label>
+            <label className="block text-xs font-medium text-slate-400 mb-2">{t.skillsLabel}</label>
 
             {/* Tag bubbles */}
             {skillList.length > 0 && (
@@ -141,31 +150,33 @@ export default function Profile({ email, setEmail, name, setName, bio, setBio, s
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
                 onKeyDown={handleAddSkillKey}
-                placeholder="Type a skill and press Enter..."
-                className="flex-1 bg-dark-800 border border-white/6 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors"
+                placeholder={t.addSkillPlaceholder}
+                className="flex-1 bg-dark-800 border border-white/6 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-accent-500/50 transition-colors"
               />
               <button
                 type="button"
                 onClick={() => addSkill(newSkill)}
-                className="btn-ghost text-sm px-3 py-2.5 flex items-center gap-1 rounded-xl cursor-pointer"
+                disabled={!newSkill.trim()}
+                className="btn-ghost text-xs px-3 rounded-xl flex items-center gap-1 cursor-pointer disabled:opacity-40"
               >
-                <Plus size={16} />
+                <Plus size={14} />
+                {t.addBtn}
               </button>
             </div>
 
-            {/* Quick-add presets */}
+            {/* Preset Suggestions */}
             {unusedPresets.length > 0 && (
               <div className="mt-3">
-                <p className="text-[10px] text-slate-600 mb-2 uppercase tracking-wider">Quick add</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {unusedPresets.slice(0, 12).map((p) => (
+                <span className="text-[11px] text-slate-400 block mb-1.5">{t.popularSkills}</span>
+                <div className="flex flex-wrap gap-1">
+                  {unusedPresets.slice(0, 10).map((preset) => (
                     <button
-                      key={p}
+                      key={preset}
                       type="button"
-                      onClick={() => addSkill(p)}
-                      className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/3 text-slate-500 border border-white/5 hover:bg-accent-500/10 hover:text-accent-400 hover:border-accent-500/20 transition-all cursor-pointer"
+                      onClick={() => addSkill(preset)}
+                      className="text-[11px] text-slate-400 hover:text-white bg-dark-800 hover:bg-dark-700 border border-white/5 rounded-lg px-2 py-0.5 transition-colors cursor-pointer"
                     >
-                      + {p}
+                      + {preset}
                     </button>
                   ))}
                 </div>
@@ -173,22 +184,22 @@ export default function Profile({ email, setEmail, name, setName, bio, setBio, s
             )}
           </div>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 text-sm cursor-pointer py-3">
+          {message && (
+            <div className="flex items-center gap-2 text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+              <CheckCircle2 size={14} />
+              <span>{message}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full btn-primary py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold cursor-pointer shadow-lg shadow-accent-600/20"
+          >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {loading ? "Saving..." : "Save Profile"}
+            {loading ? t.saving : t.saveProfileBtn}
           </button>
         </form>
-
-        {message && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20"
-          >
-            <CheckCircle2 size={16} className="text-emerald-400" />
-            <span className="text-sm text-emerald-400">{message}</span>
-          </motion.div>
-        )}
       </motion.div>
     </div>
   );

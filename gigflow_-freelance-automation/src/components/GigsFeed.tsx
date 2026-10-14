@@ -5,6 +5,7 @@ import {
   ChevronDown, RefreshCw, Trash2, Eye, CheckCheck, Globe, Save
 } from "lucide-react";
 import AccessibleDialog from "./AccessibleDialog";
+import { translations, Language } from "../i18n";
 
 interface Gig {
   id: string;
@@ -28,6 +29,7 @@ interface GigsFeedProps {
   onSaveProposal: (gigId: string, proposal: string) => void;
   generatingFor: string | null;
   userSkills: string[];
+  language?: Language;
 }
 
 const statusFilters = ["ALL", "NEW", "VIEWED", "APPLIED", "ARCHIVED"];
@@ -40,8 +42,11 @@ const statusStyles: Record<string, string> = {
 
 export default function GigsFeed({
   gigs, onScrape, scraping, onStatusChange,
-  onGenerateProposal, onSaveProposal, generatingFor, userSkills
+  onGenerateProposal, onSaveProposal, generatingFor, userSkills,
+  language = "ar",
 }: GigsFeedProps) {
+  const t = translations[language] || translations.ar;
+  const isRtl = language === "ar";
   const [filter, setFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedGig, setExpandedGig] = useState<string | null>(null);
@@ -49,9 +54,17 @@ export default function GigsFeed({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingProposals, setEditingProposals] = useState<Record<string, string>>({});
   const [savingProposal, setSavingProposal] = useState<string | null>(null);
-  const [proposalLang, setProposalLang] = useState<"arabic" | "english">("arabic");
+  const [proposalLang, setProposalLang] = useState<"arabic" | "english">(language === "ar" ? "arabic" : "english");
   const [reviewGig, setReviewGig] = useState<Gig | null>(null);
   const proposalTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const filterLabels: Record<string, string> = {
+    ALL: t.statusAll,
+    NEW: t.statusNew,
+    VIEWED: t.statusViewed,
+    APPLIED: t.statusApplied,
+    ARCHIVED: t.statusArchived,
+  };
 
   const filtered = gigs.filter((g) => {
     if (filter !== "ALL" && g.status !== filter) return false;
@@ -151,13 +164,14 @@ export default function GigsFeed({
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-5 animate-fade-in-up">
+    <div className={`p-4 md:p-8 space-y-5 animate-fade-in-up ${isRtl ? "text-right" : "text-left"}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Gigs Feed</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {filtered.length} gigs{filter !== "ALL" ? ` · ${filter}` : ""}
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{t.gigsTitle}</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            {filtered.length} {language === "ar" ? "مشروع" : "gigs"}
+            {filter !== "ALL" ? ` · ${filterLabels[filter] || filter}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -169,7 +183,7 @@ export default function GigsFeed({
                 proposalLang === "arabic" ? "bg-accent-500/20 text-accent-400" : "text-slate-500 hover:text-slate-300"
               }`}
             >
-              <Globe size={11} /> AR
+              <Globe size={11} /> {language === "ar" ? "عربي" : "AR"}
             </button>
             <button
               onClick={() => setProposalLang("english")}
@@ -177,7 +191,7 @@ export default function GigsFeed({
                 proposalLang === "english" ? "bg-accent-500/20 text-accent-400" : "text-slate-500 hover:text-slate-300"
               }`}
             >
-              <Globe size={11} /> EN
+              <Globe size={11} /> {language === "ar" ? "إنجليزي" : "EN"}
             </button>
           </div>
           <button onClick={exportCSV} className="btn-ghost text-xs py-2 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
@@ -185,7 +199,7 @@ export default function GigsFeed({
           </button>
           <button onClick={onScrape} disabled={scraping} className="btn-primary flex items-center gap-2 text-sm cursor-pointer">
             {scraping ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-            {scraping ? "Scraping..." : "Scrape"}
+            {scraping ? t.scraping : t.scrapeMostaql}
           </button>
         </div>
       </div>
@@ -193,13 +207,15 @@ export default function GigsFeed({
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={15} className={`absolute top-1/2 -translate-y-1/2 text-slate-500 ${isRtl ? "right-3" : "left-3"}`} />
           <input
             type="text"
-            placeholder="Search gigs..."
+            placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-dark-800 border border-white/6 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-slate-600 focus:border-accent-500/50 transition-colors"
+            className={`w-full bg-dark-800 border border-white/6 rounded-xl py-2.5 text-sm text-white placeholder-slate-500 focus:border-accent-500/50 transition-colors ${
+              isRtl ? "pr-9 pl-4" : "pl-9 pr-4"
+            }`}
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
@@ -215,8 +231,8 @@ export default function GigsFeed({
                     : "text-slate-500 hover:text-slate-300 border border-transparent hover:bg-white/5"
                 }`}
               >
-                {s}
-                <span className="ml-1.5 opacity-50">{count}</span>
+                {filterLabels[s] || s}
+                <span className="opacity-60 mx-1">({count})</span>
               </button>
             );
           })}
@@ -233,16 +249,18 @@ export default function GigsFeed({
             className="overflow-hidden"
           >
             <div className="flex items-center gap-3 glass-card rounded-xl px-4 py-3">
-              <span className="text-sm text-slate-400 font-medium">{selectedIds.size} selected</span>
+              <span className="text-sm text-slate-400 font-medium">
+                {t.selectedCount.replace("{count}", String(selectedIds.size))}
+              </span>
               <div className="flex gap-2 ml-auto flex-wrap">
                 <button onClick={() => bulkStatusChange("VIEWED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
-                  <Eye size={11} /> Viewed
+                  <Eye size={11} /> {t.statusViewed}
                 </button>
                 <button onClick={() => bulkStatusChange("APPLIED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer">
-                  <CheckCheck size={11} /> Applied
+                  <CheckCheck size={11} /> {t.applySelected}
                 </button>
                 <button onClick={() => bulkStatusChange("ARCHIVED")} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg cursor-pointer text-rose-400 border-rose-500/20 hover:bg-rose-500/10">
-                  <Trash2 size={11} /> Archive
+                  <Trash2 size={11} /> {t.archiveSelected}
                 </button>
                 <button onClick={() => setSelectedIds(new Set())} className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer px-2">✕</button>
               </div>
@@ -361,7 +379,7 @@ export default function GigsFeed({
                             onClick={() => handleViewLink(gig)}
                             className="btn-ghost text-xs py-1.5 px-2.5 inline-flex items-center gap-1 rounded-lg"
                           >
-                            <ExternalLink size={11} /> View
+                            <ExternalLink size={11} /> {t.viewOnPlatform}
                           </a>
                           <button
                             onClick={() => onGenerateProposal(gig.id, proposalLang)}
@@ -374,20 +392,20 @@ export default function GigsFeed({
                               <Sparkles size={11} />
                             )}
                             {generatingFor === gig.id
-                              ? "Generating…"
+                              ? t.generating
                               : gig.proposal
-                              ? "Regenerate"
-                              : `AI Proposal (${proposalLang === "arabic" ? "AR" : "EN"})`}
+                              ? t.regenerate
+                              : `${t.generateProposal} (${proposalLang === "arabic" ? "AR" : "EN"})`}
                           </button>
                           <select
                             value={gig.status}
                             onChange={(e) => onStatusChange(gig.id, e.target.value)}
                             className="bg-dark-800 text-slate-400 text-xs border border-white/6 rounded-lg px-2 py-1.5 cursor-pointer focus:border-accent-500/50"
                           >
-                            <option value="NEW">NEW</option>
-                            <option value="VIEWED">VIEWED</option>
-                            <option value="APPLIED">APPLIED</option>
-                            <option value="ARCHIVED">ARCHIVED</option>
+                            <option value="NEW">{t.statusNew}</option>
+                            <option value="VIEWED">{t.statusViewed}</option>
+                            <option value="APPLIED">{t.statusApplied}</option>
+                            <option value="ARCHIVED">{t.statusArchived}</option>
                           </select>
                           {gig.proposal && (
                             <button
@@ -399,11 +417,11 @@ export default function GigsFeed({
                               className="btn-ghost text-xs py-1.5 px-2.5 inline-flex items-center gap-1 rounded-lg cursor-pointer"
                             >
                               <ChevronDown size={11} className={`transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                              Proposal
+                              {t.viewProposal}
                             </button>
                           )}
-                          <span className="text-[10px] text-slate-600 font-mono ml-auto hidden sm:inline">
-                            {new Date(gig.scrapedAt).toLocaleDateString()}
+                          <span className="text-[10px] text-slate-500 font-mono ml-auto hidden sm:inline">
+                            {new Date(gig.scrapedAt).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US")}
                           </span>
                         </div>
                       </div>
