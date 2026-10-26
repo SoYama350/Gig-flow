@@ -266,6 +266,45 @@ export default function AgentWorkspace({
     }
   };
 
+  const handleApproveAll = async () => {
+    if (!currentRun || !currentRun.tasks || currentRun.tasks.length === 0) return;
+    const taskIds = currentRun.tasks.map((t) => t.id);
+    try {
+      const res = await fetch(`/api/agent-runs/${currentRun.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskIds }),
+      });
+      if (res.ok) {
+        onShowToast(t.batchApprovedSuccess);
+        fetchRunDetails(currentRun.id);
+      } else {
+        const err = await res.json();
+        onShowToast(err.error || "Failed to approve tasks", "error");
+      }
+    } catch {
+      onShowToast("Failed to approve tasks", "error");
+    }
+  };
+
+  const handleExecuteApplications = async () => {
+    if (!currentRun) return;
+    try {
+      const res = await fetch(`/api/agent-runs/${currentRun.id}/execute`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        onShowToast(t.applicationsExecutedSuccess);
+        fetchRunDetails(currentRun.id);
+      } else {
+        const err = await res.json();
+        onShowToast(err.error || "Failed to execute applications", "error");
+      }
+    } catch {
+      onShowToast("Failed to execute applications", "error");
+    }
+  };
+
   const handleSaveDoc = async () => {
     if (!newDocName.trim() || !newDocContent.trim()) return;
     try {
@@ -716,25 +755,48 @@ export default function AgentWorkspace({
                   {t.candidateSubtitle}
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 bg-dark-800/60 p-1 rounded-xl border border-white/5 text-xs">
-                {[
-                  { id: "ALL", label: t.filterAll },
-                  { id: "PENDING", label: t.filterPending },
-                  { id: "APPROVED", label: t.filterApproved },
-                  { id: "REJECTED", label: t.filterRejected },
-                ].map((st) => (
-                  <button
-                    key={st.id}
-                    onClick={() => setFilterStage(st.id)}
-                    className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                      filterStage === st.id
-                        ? "bg-accent-600 text-white shadow-sm"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {st.label}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-dark-800/60 p-1 rounded-xl border border-white/5 text-xs">
+                  {[
+                    { id: "ALL", label: t.filterAll },
+                    { id: "PENDING", label: t.filterPending },
+                    { id: "APPROVED", label: t.filterApproved },
+                    { id: "REJECTED", label: t.filterRejected },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => setFilterStage(st.id)}
+                      className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                        filterStage === st.id
+                          ? "bg-accent-600 text-white shadow-sm"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+
+                {currentRun && currentRun.tasks && currentRun.tasks.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleApproveAll}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                      title={t.approveAllBtn}
+                    >
+                      <CheckCircle2 size={13} />
+                      {t.approveAllBtn}
+                    </button>
+                    <button
+                      onClick={handleExecuteApplications}
+                      className="px-3 py-1.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-accent-600/20 transition-all cursor-pointer"
+                      title={t.executeApplicationsBtn}
+                    >
+                      <Send size={13} />
+                      {t.executeApplicationsBtn}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

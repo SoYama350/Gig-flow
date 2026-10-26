@@ -7,4 +7,8 @@ coverage/
 .env*
 !.env.example
 
+
 /src/generated/prisma
+.vite/
+*.db
+*.db-journal

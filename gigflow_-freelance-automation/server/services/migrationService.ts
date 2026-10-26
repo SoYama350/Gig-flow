@@ -26,6 +26,13 @@ export async function runDatabaseMigrationsAndSeed(prisma: PrismaClient) {
         configJson: JSON.stringify({ feedUrl: "https://weworkremotely.com/categories/remote-programming-jobs.rss" }),
       },
       {
+        key: "freelancer",
+        displayName: "Freelancer.com",
+        type: "api",
+        enabled: true,
+        configJson: JSON.stringify({ apiUrl: "https://www.freelancer.com/api/projects/0.1/projects/active/" }),
+      },
+      {
         key: "remoteok",
         displayName: "RemoteOK",
         type: "api",

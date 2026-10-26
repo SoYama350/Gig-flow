@@ -3,6 +3,7 @@ import { MostaqlAdapter } from "./mostaqlAdapter.js";
 import { KhamsatAdapter } from "./khamsatAdapter.js";
 import { WeWorkRemotelyAdapter } from "./wwrAdapter.js";
 import { RemoteOkAdapter } from "./remoteOkAdapter.js";
+import { FreelancerAdapter } from "./freelancerAdapter.js";
 import { ScraplingClient } from "./scraplingClient.js";
 
 export interface SourceExecutionResult {
@@ -24,6 +25,7 @@ export class SourceRegistry {
   constructor() {
     this.register(new MostaqlAdapter());
     this.register(new KhamsatAdapter());
+    this.register(new FreelancerAdapter());
     this.register(new WeWorkRemotelyAdapter());
     this.register(new RemoteOkAdapter());
   }
@@ -68,7 +70,7 @@ export class SourceRegistry {
 
     const targetKeys = sourceKeys.length > 0
       ? sourceKeys.map((k) => k.toLowerCase())
-      : ["mostaql", "khamsat", "weworkremotely"];
+      : ["mostaql", "khamsat", "freelancer", "weworkremotely"];
 
     // 1. Try Scrapling service first if available
     const scraplingAvailable = await ScraplingClient.isAvailable();

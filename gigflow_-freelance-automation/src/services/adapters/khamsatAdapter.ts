@@ -60,6 +60,9 @@ export class KhamsatAdapter implements OpportunitySourceAdapter {
           const url = relativeUrl.startsWith("http") ? relativeUrl : `https://khamsat.com${relativeUrl}`;
 
           if (title && url) {
+            if (query.keyword && !title.toLowerCase().includes(query.keyword.toLowerCase())) {
+              continue;
+            }
             basicGigs.push({ title, url });
           }
         }

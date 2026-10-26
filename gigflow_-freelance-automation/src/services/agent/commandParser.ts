@@ -23,11 +23,12 @@ export function parseAgentInstruction(instruction: string, defaultSkills: string
   const sources: string[] = [];
   if (text.includes("mostaql") || text.includes("مستقل")) sources.push("mostaql");
   if (text.includes("khamsat") || text.includes("خمسات")) sources.push("khamsat");
+  if (text.includes("freelancer") || text.includes("فريلانسر")) sources.push("freelancer");
   if (text.includes("weworkremotely") || text.includes("wwr") || text.includes("remote jobs")) sources.push("weworkremotely");
   if (text.includes("remoteok") || text.includes("remote ok")) sources.push("remoteok");
 
   // Default to all active sources if none specifically mentioned
-  const finalSources = sources.length > 0 ? sources : ["mostaql", "khamsat", "weworkremotely"];
+  const finalSources = sources.length > 0 ? sources : ["mostaql", "khamsat", "freelancer", "weworkremotely"];
 
   // 3. Skills extraction
   const commonTech = [
